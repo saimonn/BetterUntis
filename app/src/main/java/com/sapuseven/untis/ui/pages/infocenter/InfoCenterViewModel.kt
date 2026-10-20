@@ -6,6 +6,8 @@ import com.sapuseven.untis.api.model.untis.enumeration.Right
 import com.sapuseven.untis.data.repository.MasterDataRepository
 import com.sapuseven.untis.data.repository.UserRepository
 import com.sapuseven.untis.data.repository.UserSettingsRepository
+import com.sapuseven.untis.domain.DownloadMessageAttachmentUseCase
+import com.sapuseven.untis.domain.DownloadMessageAttachmentUseCaseImpl
 import com.sapuseven.untis.domain.GetAbsencesUseCase
 import com.sapuseven.untis.domain.GetExamsUseCase
 import com.sapuseven.untis.domain.GetHomeworkUseCase
@@ -13,20 +15,26 @@ import com.sapuseven.untis.domain.GetMessagesOfDayUseCase
 import com.sapuseven.untis.domain.GetMessagesUseCase
 import com.sapuseven.untis.domain.GetOfficeHoursUseCase
 import com.sapuseven.untis.model.rest.Message
+import com.sapuseven.untis.model.rest.MessageAttachment
 import com.sapuseven.untis.ui.navigation.AppNavigator
 import com.sapuseven.untis.ui.pages.infocenter.fragments.AbsencesUiState
 import com.sapuseven.untis.ui.pages.infocenter.fragments.EventsUiState
 import com.sapuseven.untis.ui.pages.infocenter.fragments.MessagesUiState
 import com.sapuseven.untis.ui.pages.infocenter.fragments.OfficeHoursUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -36,6 +44,7 @@ class InfoCenterViewModel @Inject constructor(
 	private val navigator: AppNavigator,
 	internal val userSettingsRepository: UserSettingsRepository,
 	private val getMessages: GetMessagesUseCase,
+	private val downloadMessageAttachment: DownloadMessageAttachmentUseCase,
 	getMessagesOfDay: GetMessagesOfDayUseCase,
 	getExams: GetExamsUseCase,
 	getHomework: GetHomeworkUseCase,
@@ -68,6 +77,27 @@ class InfoCenterViewModel @Inject constructor(
 	val selectedMessage: StateFlow<Message?> = _selectedMessage
 	private val _selectedMessageContent = MutableStateFlow<String?>(null)
 	val selectedMessageContent: StateFlow<String?> = _selectedMessageContent
+
+	private val attachmentDownloads = mutableMapOf<String, Flow<Result<File>>>()
+
+	/**
+	 * Downloads the given attachment (if it is not cached yet) and emits the resulting file.
+	 *
+	 * Each attachment is only downloaded once, subsequent calls return the cached file.
+	 */
+	fun downloadAttachment(messageId: Long, attachment: MessageAttachment): Flow<Result<File>> {
+		val key = DownloadMessageAttachmentUseCaseImpl.fileName(messageId, attachment)
+		val download = attachmentDownloads.getOrPut(key) {
+			flow {
+				emit(runCatching { downloadMessageAttachment(messageId, attachment) })
+			}.onEach {
+				if (it.isFailure)
+					attachmentDownloads.remove(key)
+			}.shareIn(viewModelScope, SharingStarted.Lazily, replay = 1)
+		}
+
+		return download
+	}
 
 	fun onMessageClicked(message: Message) {
 		_selectedMessage.value = message

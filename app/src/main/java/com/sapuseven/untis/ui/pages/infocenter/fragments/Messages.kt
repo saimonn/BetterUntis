@@ -63,7 +63,9 @@ import com.sapuseven.untis.R
 import com.sapuseven.untis.api.model.untis.Attachment
 import com.sapuseven.untis.api.model.untis.MessageOfDay
 import com.sapuseven.untis.model.rest.Message
+import com.sapuseven.untis.model.rest.MessageAttachment
 import com.sapuseven.untis.ui.dialogs.AttachmentsDialog
+import com.sapuseven.untis.ui.dialogs.MessageAttachmentsDialog
 import com.sapuseven.untis.ui.pages.infocenter.InfoCenterViewModel
 import io.github.fornewid.placeholder.foundation.PlaceholderDefaults
 import io.github.fornewid.placeholder.foundation.PlaceholderHighlight
@@ -85,6 +87,7 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 	val selectedMessageContent by viewModel.selectedMessageContent.collectAsStateWithLifecycle()
 
 	var attachmentsDialog by remember { mutableStateOf<List<Attachment>?>(null) }
+	var messageAttachmentsDialog by remember { mutableStateOf<MessageAttachmentSelection?>(null) }
 
 	Crossfade(targetState = uiState, label = "InfoCenter Messages Content") { state ->
 		SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
@@ -162,7 +165,10 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 													imageUrl = message.sender?.imageUrl,
 													time = message.sentDateTime,
 													read = message.isMessageRead ?: true,
-													attachments = null // TODO: Support attachments (message.hasAttachments)
+													hasAttachments = message.hasAttachments == true,
+													onShowAttachments = {
+														messageAttachmentsDialog = message.attachmentSelection()
+													}
 												)
 											}
 										}
@@ -186,6 +192,9 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 				canDelete = false, // TODO not yet implemented - selectedMessage?.allowMessageDeletion == true,
 				onReply = { viewModel.onMessageReply() },
 				onDelete = { viewModel.onMessageDelete() },
+				onShowAttachments = {
+					selectedMessage?.let { messageAttachmentsDialog = it.attachmentSelection() }
+				},
 			)
 
 			BackHandler(selectedMessage != null) {
@@ -197,6 +206,38 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 	attachmentsDialog?.let { attachments ->
 		AttachmentsDialog(attachments = attachments, onDismiss = { attachmentsDialog = null })
 	}
+
+	messageAttachmentsDialog?.let { selection ->
+		MessageAttachmentsDialog(
+			messageId = selection.messageId,
+			attachments = selection.attachments,
+			onDismiss = { messageAttachmentsDialog = null },
+			downloadAttachment = viewModel::downloadAttachment
+		)
+	}
+}
+
+/**
+ * The attachments a user has selected to view, see [MessageAttachmentsDialog].
+ */
+private data class MessageAttachmentSelection(
+	val messageId: Long,
+	val attachments: List<MessageAttachment>,
+)
+
+/**
+ * The attachments of a message that can be shown to the user.
+ *
+ * Attachments that are already included in the message (blob attachments) are downloaded
+ * together with the message itself, all other attachments are downloaded on demand.
+ */
+private fun Message.attachmentSelection(): MessageAttachmentSelection? {
+	val attachments =
+		(attachments.orEmpty() + listOfNotNull(blobAttachment) + storageAttachments.orEmpty())
+			.filter { it.downloadable != false }
+
+	return if (attachments.isEmpty()) null
+	else MessageAttachmentSelection(messageId = id, attachments = attachments)
 }
 
 
@@ -210,6 +251,7 @@ private fun SharedTransitionScope.MessageDetails(
 	canDelete: Boolean = false,
 	onReply: () -> Unit,
 	onDelete: () -> Unit,
+	onShowAttachments: () -> Unit,
 ) {
 	AnimatedContent(
 		modifier = modifier.fillMaxSize(),
@@ -247,7 +289,8 @@ private fun SharedTransitionScope.MessageDetails(
 									imageUrl = targetMessage.sender?.imageUrl,
 									time = targetMessage.sentDateTime,
 									read = targetMessage.isMessageRead ?: true,
-									attachments = null
+									hasAttachments = targetMessage.hasAttachments == true,
+									onShowAttachments = onShowAttachments
 								)
 
 								Text(
@@ -327,6 +370,7 @@ private fun SharedTransitionScope.MessagePreview(
 	time: LocalDateTime? = null,
 	read: Boolean = true,
 	attachments: List<Attachment>? = null,
+	hasAttachments: Boolean = attachments != null,
 	onShowAttachments: () -> Unit = {}
 ) {
 	val textColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -418,7 +462,7 @@ private fun SharedTransitionScope.MessagePreview(
 					color = MaterialTheme.colorScheme.onSurfaceVariant
 				)
 			}
-			attachments?.let {
+			if (hasAttachments) {
 				IconButton(onClick = {
 					onShowAttachments()
 				}) {

@@ -2,10 +2,15 @@ package com.sapuseven.untis.data.repository
 
 import com.sapuseven.untis.data.cache.DiskCache
 import com.sapuseven.untis.model.rest.Message
+import com.sapuseven.untis.model.rest.MessageAttachmentStorageUrl
 import com.sapuseven.untis.model.rest.MessagesResponse
 import com.sapuseven.untis.modules.MessagesApiFactory
 import crocodile8.universal_cache.CachedSource
 import crocodile8.universal_cache.time.TimeProvider
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.header
 import kotlinx.serialization.serializer
 import java.io.File
 import javax.inject.Inject
@@ -19,11 +24,16 @@ interface MessagesRepository {
 	fun messagesSentSource(): CachedSource<Unit, List<Message>>
 
 	fun messagesDraftsSource(): CachedSource<Unit, List<Message>>
+
+	suspend fun attachmentStorageUrl(attachmentId: String): MessageAttachmentStorageUrl
+
+	suspend fun downloadAttachment(url: String, headers: Map<String, String>, destination: File)
 }
 
 class UntisMessagesRepository @Inject constructor(
 	private val messagesApiFactory: MessagesApiFactory,
 	@Named("cacheDir") private val cacheDir: File,
+	@Named("download") private val downloadHttpClient: HttpClient,
 	private val timeProvider: TimeProvider,
 ) : MessagesRepository {
 	override fun messageSource(): CachedSource<Long, Message> {
@@ -64,5 +74,21 @@ class UntisMessagesRepository @Inject constructor(
 			cache = DiskCache(File(cacheDir, "messenger/messagesDrafts"), serializer()),
 			timeProvider = timeProvider
 		)
+	}
+
+	override suspend fun attachmentStorageUrl(attachmentId: String): MessageAttachmentStorageUrl =
+		messagesApiFactory.create().getMessageAttachmentStorageUrl(attachmentId).body()
+
+	override suspend fun downloadAttachment(
+		url: String,
+		headers: Map<String, String>,
+		destination: File,
+	) {
+		val content = downloadHttpClient.get(url) {
+			headers.forEach { (key, value) -> header(key, value) }
+		}.body<ByteArray>()
+
+		destination.parentFile?.mkdirs()
+		destination.writeBytes(content)
 	}
 }

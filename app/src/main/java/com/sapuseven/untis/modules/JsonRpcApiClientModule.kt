@@ -45,6 +45,19 @@ object JsonRpcApiClientModule {
 
 	@Provides
 	@Singleton
+	@Named("download")
+	fun provideDownloadHttpClient(httpClientEngineFactory: HttpClientEngineFactory<*>): HttpClient =
+		HttpClient(httpClientEngineFactory.create()) {
+			install(HttpRequestRetry) {
+				retryOnServerErrors(maxRetries = 3)
+				retryOnException(maxRetries = 3)
+				exponentialDelay()
+			}
+			expectSuccess = true
+		}
+
+	@Provides
+	@Singleton
 	fun provideSchoolSearchApi(engineFactory: HttpClientEngineFactory<*>): SchoolSearchApi =
 		SchoolSearchApi(engineFactory)
 

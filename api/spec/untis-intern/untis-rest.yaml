@@ -98,6 +98,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /view/v1/messages/{attachmentId}/attachmentstorageurl:
+    get:
+      summary: Get a download URL for a message attachment stored by Untis
+      operationId: getMessageAttachmentStorageUrl
+      tags:
+        - messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          description: The ID of the attachment to retrieve a download URL for
+          schema:
+            type: string
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageAttachmentStorageUrl'
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /view/v1/messages/sent:
     get:
       summary: Get a list of sent messages
@@ -514,6 +542,28 @@ components:
         - ONE_DRIVE
         - STORAGE_ATTACHMENT
         - BLOB_ATTACHMENT
+
+    MessageAttachmentStorageUrl:
+      type: object
+      properties:
+        downloadUrl:
+          type: string
+          description: The URL to download the attachment from.
+        additionalHeaders:
+          type: array
+          description: Additional headers required to download the attachment.
+          items:
+            $ref: '#/components/schemas/MessageAttachmentStorageUrlHeader'
+
+    MessageAttachmentStorageUrlHeader:
+      type: object
+      properties:
+        key:
+          type: string
+          description: The header name.
+        value:
+          type: string
+          description: The header value.
 
     MessageRequestConfirmation:
       type: object

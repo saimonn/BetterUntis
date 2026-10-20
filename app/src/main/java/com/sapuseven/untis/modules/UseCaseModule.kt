@@ -1,5 +1,7 @@
 package com.sapuseven.untis.modules
 
+import com.sapuseven.untis.domain.DownloadMessageAttachmentUseCase
+import com.sapuseven.untis.domain.DownloadMessageAttachmentUseCaseImpl
 import com.sapuseven.untis.domain.GetMessagesOfDayUseCase
 import com.sapuseven.untis.domain.GetMessagesOfDayUseCaseImpl
 import com.sapuseven.untis.domain.GetMessagesUseCase
@@ -14,6 +16,11 @@ import dagger.hilt.components.SingletonComponent
 @Module
 @InstallIn(SingletonComponent::class)
 interface UseCaseModule {
+	@Binds
+	fun bindDownloadMessageAttachmentUseCase(
+		implementation: DownloadMessageAttachmentUseCaseImpl
+	): DownloadMessageAttachmentUseCase
+
 	@Binds
 	fun bindGetMessagesOfDayUseCase(
 		implementation: GetMessagesOfDayUseCaseImpl
