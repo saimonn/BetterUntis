@@ -5,6 +5,14 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
       - "[0-9]+.[0-9]+.[0-9]+-[a-zA-Z0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-[a-zA-Z0-9-]+"
+  # Needed by the fork: tags cannot be created through the UI
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name for the release (e.g. 5.0.0-beta04-attachments)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -27,12 +35,46 @@ jobs:
         with:
           cache-read-only: false
           
-      - name: Decode keystore
+      # The upstream repository signs with its own keystore, provided through
+      # repository secrets. Forks (e.g. saimonn/BetterUntis) do not have those
+      # secrets: they fall back to the self-signed key material below, which is
+      # reproducible from secrets/vars only available to the fork owner.
+      - name: Decode upstream keystore
+        if: ${{ secrets.KEYSTORE_ENCODED != '' }}
         uses: timheuer/base64-to-file@v1.2
         with:
           fileName: 'BetterUntis.jks'
           fileDir: './app/'
           encodedString: ${{ secrets.KEYSTORE_ENCODED }}
+
+      - name: Set up fork keystore
+        if: ${{ secrets.FORK_SIGNING_KEY != '' }}
+        env:
+          FORK_SIGNING_KEY: ${{ secrets.FORK_SIGNING_KEY }}
+          FORK_SIGNING_CERTIFICATE: ${{ vars.FORK_SIGNING_CERTIFICATE }}
+          FORK_KEYSTORE_PASSWORD: ${{ secrets.FORK_KEYSTORE_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_RELEASE_PASSWORD: ${{ secrets.KEY_RELEASE_PASSWORD }}
+          KEY_DEBUG_PASSWORD: ${{ secrets.KEY_DEBUG_PASSWORD }}
+        run: |
+          STORE_PASS="${FORK_KEYSTORE_PASSWORD:-${KEYSTORE_PASSWORD:-android}}"
+          KEY_PASS="${KEY_RELEASE_PASSWORD:-${FORK_KEYSTORE_PASSWORD:-android}}"
+
+          printf '%s\n' "$FORK_SIGNING_KEY" > signing-key.pem
+          printf '%s\n' "$FORK_SIGNING_CERTIFICATE" > signing-cert.pem
+          openssl pkcs12 -export -inkey signing-key.pem -in signing-cert.pem \
+            -out app/BetterUntis.jks -name release -passout "pass:$STORE_PASS"
+          rm -f signing-key.pem signing-cert.pem
+
+          # app/build.gradle.kts picks the passwords up from signing.properties
+          # before falling back to the KEYSTORE_PASSWORD/KEY_*_PASSWORD env vars.
+          cat > app/signing.properties <<EOF
+          keystorePassword=$STORE_PASS
+          keyReleasePassword=$KEY_PASS
+          keyDebugPassword=$KEY_PASS
+          EOF
+
+          echo "SIGNED_WITH_FORK_KEYSTORE=true" >> "$GITHUB_ENV"
 
       - name: Assemble release
         env:
@@ -63,20 +105,34 @@ jobs:
           name: betteruntis-release
           path: app/build/outputs
           
+      - name: Resolve tag
+        id: tag
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: echo "name=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ steps.tag.outputs.name }}
         run: |
+          NOTES="./fastlane/metadata/android/en-US/changelogs/$TAG.txt"
+          if [[ -f "$NOTES" ]]; then
+            NOTES_ARG=(--notes-file "$NOTES")
+          else
+            NOTES_ARG=(--generate-notes)
+          fi
           gh release create "$TAG" \
               --prerelease \
               --title "BetterUntis $TAG" \
-              --notes-file "./fastlane/metadata/android/en-US/changelogs/$TAG.txt" \
-              "./app/build/outputs/apk/gms/release/app-gms-release.apk#BetterUntis $TAG.apk"
+              "${NOTES_ARG[@]}" \
+              "./app/build/outputs/apk/gms/release/app-gms-release.apk#BetterUntis $TAG.apk" \
+              "./app/build/outputs/apk/foss/release/app-foss-release.apk#BetterUntis $TAG-foss.apk"
 
   fastlane:
     name: Create Release on Google Play Store
     needs: build
+    if: github.repository == 'SapuSeven/BetterUntis'
     runs-on: ubuntu-latest
 
     steps:
@@ -110,6 +166,7 @@ jobs:
   fdroid:
     name: Create Release for FDroid
     needs: build
+    if: github.repository == 'SapuSeven/BetterUntis'
     runs-on: ubuntu-latest
 
     steps:
@@ -146,6 +203,7 @@ jobs:
   sapuseven:
     name: Create Release on sapuseven.com
     needs: build
+    if: github.repository == 'SapuSeven/BetterUntis'
     runs-on: ubuntu-latest
 
     steps:
