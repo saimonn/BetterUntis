@@ -119,6 +119,10 @@ jobs:
           else
             NOTES_ARG=(--generate-notes)
           fi
+          # Re-running for the same tag must be possible: drop a previous
+          # release (e.g. from a failed attempt) before recreating it.
+          gh release delete "$TAG" --yes --cleanup-tag=false 2>/dev/null || true
+
           gh release create "$TAG" \
               --prerelease \
               --title "BetterUntis $TAG" \
