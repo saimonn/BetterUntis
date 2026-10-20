@@ -122,9 +122,14 @@ jobs:
           gh release create "$TAG" \
               --prerelease \
               --title "BetterUntis $TAG" \
-              "${NOTES_ARG[@]}" \
-              "./app/build/outputs/apk/gms/release/app-gms-release.apk#BetterUntis $TAG.apk" \
-              "./app/build/outputs/apk/foss/release/app-foss-release.apk#BetterUntis $TAG-foss.apk"
+              "${NOTES_ARG[@]}"
+
+          mkdir -p dist
+          cp app/build/outputs/apk/gms/release/app-gms-release.apk \
+             "dist/BetterUntis-$TAG.apk"
+          cp app/build/outputs/apk/foss/release/app-foss-release.apk \
+             "dist/BetterUntis-$TAG-foss.apk"
+          gh release upload "$TAG" dist/*.apk
 
   fastlane:
     name: Create Release on Google Play Store
