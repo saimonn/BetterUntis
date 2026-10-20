@@ -140,7 +140,9 @@ android {
 }
 
 sentry {
-	autoUploadProguardMapping.set(System.getenv("SENTRY_PROJECT") != null)
+	// Forks do not have the SENTRY_AUTH_TOKEN secret, so SENTRY_PROJECT is
+	// empty rather than absent: only upload mappings when it is set.
+	autoUploadProguardMapping.set(!System.getenv("SENTRY_PROJECT").isNullOrBlank())
 }
 
 aboutLibraries {
