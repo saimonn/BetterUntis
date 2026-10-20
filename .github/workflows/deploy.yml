@@ -37,10 +37,10 @@ jobs:
           
       # The upstream repository signs with its own keystore, provided through
       # repository secrets. Forks (e.g. saimonn/BetterUntis) do not have those
-      # secrets: they fall back to the self-signed key material below, which is
-      # reproducible from secrets/vars only available to the fork owner.
+      # secrets: they fall back to the key material below, available as
+      # FORK_SIGNING_KEY (secret) and FORK_SIGNING_CERTIFICATE (variable).
       - name: Decode upstream keystore
-        if: ${{ secrets.KEYSTORE_ENCODED != '' }}
+        if: ${{ vars.CI_SIGNING_MODE != 'fork' }}
         uses: timheuer/base64-to-file@v1.2
         with:
           fileName: 'BetterUntis.jks'
@@ -48,17 +48,13 @@ jobs:
           encodedString: ${{ secrets.KEYSTORE_ENCODED }}
 
       - name: Set up fork keystore
-        if: ${{ secrets.FORK_SIGNING_KEY != '' }}
+        if: ${{ vars.CI_SIGNING_MODE == 'fork' }}
         env:
           FORK_SIGNING_KEY: ${{ secrets.FORK_SIGNING_KEY }}
           FORK_SIGNING_CERTIFICATE: ${{ vars.FORK_SIGNING_CERTIFICATE }}
           FORK_KEYSTORE_PASSWORD: ${{ secrets.FORK_KEYSTORE_PASSWORD }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_RELEASE_PASSWORD: ${{ secrets.KEY_RELEASE_PASSWORD }}
-          KEY_DEBUG_PASSWORD: ${{ secrets.KEY_DEBUG_PASSWORD }}
         run: |
-          STORE_PASS="${FORK_KEYSTORE_PASSWORD:-${KEYSTORE_PASSWORD:-android}}"
-          KEY_PASS="${KEY_RELEASE_PASSWORD:-${FORK_KEYSTORE_PASSWORD:-android}}"
+          STORE_PASS="${FORK_KEYSTORE_PASSWORD:-android}"
 
           printf '%s\n' "$FORK_SIGNING_KEY" > signing-key.pem
           printf '%s\n' "$FORK_SIGNING_CERTIFICATE" > signing-cert.pem
@@ -66,15 +62,16 @@ jobs:
             -out app/BetterUntis.jks -name release -passout "pass:$STORE_PASS"
           rm -f signing-key.pem signing-cert.pem
 
-          # app/build.gradle.kts picks the passwords up from signing.properties
+          # app/build.gradle.kts reads the passwords from signing.properties
           # before falling back to the KEYSTORE_PASSWORD/KEY_*_PASSWORD env vars.
           cat > app/signing.properties <<EOF
           keystorePassword=$STORE_PASS
-          keyReleasePassword=$KEY_PASS
-          keyDebugPassword=$KEY_PASS
+          keyReleasePassword=$STORE_PASS
+          keyDebugPassword=$STORE_PASS
           EOF
 
-          echo "SIGNED_WITH_FORK_KEYSTORE=true" >> "$GITHUB_ENV"
+          keytool -list -keystore app/BetterUntis.jks -storetype PKCS12 \
+            -storepass "$STORE_PASS" | grep -q PrivateKeyEntry
 
       - name: Assemble release
         env:
