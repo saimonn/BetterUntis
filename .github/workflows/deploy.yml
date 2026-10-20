@@ -5,7 +5,7 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
       - "[0-9]+.[0-9]+.[0-9]+-[a-zA-Z0-9]+"
-      - "[0-9]+.[0-9]+.[0-9]+-[a-zA-Z0-9-]+"
+      - "[0-9]+.[0-9]+.[0-9]+-[a-zA-Z0-9]*"
   # Needed by the fork: tags cannot be created through the UI
   workflow_dispatch:
     inputs:
