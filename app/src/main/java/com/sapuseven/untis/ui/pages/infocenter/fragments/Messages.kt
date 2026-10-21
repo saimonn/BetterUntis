@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,7 +88,12 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 	val selectedMessageContent by viewModel.selectedMessageContent.collectAsStateWithLifecycle()
 
 	var attachmentsDialog by remember { mutableStateOf<List<Attachment>?>(null) }
-	var messageAttachmentsDialog by remember { mutableStateOf<MessageAttachmentSelection?>(null) }
+
+	// Whether the attachment dialog of the currently selected message is open.
+	// The attachments themselves are read from `selectedMessage`, which is
+	// replaced by the message detail (carrying the attachments) as soon as it
+	// has been loaded: the list entries only know `hasAttachments`.
+	var showMessageAttachments by remember { mutableStateOf(false) }
 
 	Crossfade(targetState = uiState, label = "InfoCenter Messages Content") { state ->
 		SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
@@ -167,7 +173,11 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 													read = message.isMessageRead ?: true,
 													hasAttachments = message.hasAttachments == true,
 													onShowAttachments = {
-														messageAttachmentsDialog = message.attachmentSelection()
+														// The attachments are not part of the list
+														// response, so open the message first; the
+														// dialog shows up once the detail is loaded.
+														viewModel.onMessageClicked(message)
+														showMessageAttachments = true
 													}
 												)
 											}
@@ -193,7 +203,7 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 				onReply = { viewModel.onMessageReply() },
 				onDelete = { viewModel.onMessageDelete() },
 				onShowAttachments = {
-					selectedMessage?.let { messageAttachmentsDialog = it.attachmentSelection() }
+					showMessageAttachments = true
 				},
 			)
 
@@ -207,13 +217,30 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 		AttachmentsDialog(attachments = attachments, onDismiss = { attachmentsDialog = null })
 	}
 
-	messageAttachmentsDialog?.let { selection ->
-		MessageAttachmentsDialog(
-			messageId = selection.messageId,
-			attachments = selection.attachments,
-			onDismiss = { messageAttachmentsDialog = null },
-			downloadAttachment = viewModel::downloadAttachment
-		)
+	// The attachments are only present in the message detail, so wait for it
+	// to be loaded instead of showing an empty dialog.
+	if (showMessageAttachments) {
+		selectedMessage?.attachmentSelection()?.let { selection ->
+			MessageAttachmentsDialog(
+				messageId = selection.messageId,
+				attachments = selection.attachments,
+				onDismiss = { showMessageAttachments = false },
+				downloadAttachment = viewModel::downloadAttachment
+			)
+		}
+	}
+
+	// Stop waiting for the detail when it is loaded but has no downloadable
+	// attachment (`hasAttachments` can be true while nothing can be shown).
+	// `selectedMessageContent` is only set once the detail has been loaded.
+	LaunchedEffect(selectedMessage, selectedMessageContent, showMessageAttachments) {
+		if (!showMessageAttachments) return@LaunchedEffect
+		val message = selectedMessage
+		if (message == null) {
+			showMessageAttachments = false
+		} else if (selectedMessageContent != null && message.attachmentSelection() == null) {
+			showMessageAttachments = false
+		}
 	}
 }
 
@@ -370,7 +397,7 @@ private fun SharedTransitionScope.MessagePreview(
 	time: LocalDateTime? = null,
 	read: Boolean = true,
 	attachments: List<Attachment>? = null,
-	hasAttachments: Boolean = attachments != null,
+	hasAttachments: Boolean = attachments.isNullOrEmpty().not(),
 	onShowAttachments: () -> Unit = {}
 ) {
 	val textColor = MaterialTheme.colorScheme.onSurfaceVariant

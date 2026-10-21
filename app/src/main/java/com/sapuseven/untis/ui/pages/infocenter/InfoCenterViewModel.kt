@@ -100,13 +100,20 @@ class InfoCenterViewModel @Inject constructor(
 	}
 
 	fun onMessageClicked(message: Message) {
+		// The message from the list only carries `hasAttachments`; the actual
+		// attachments are part of the message detail, so show the list entry
+		// first and replace it once the detail has been loaded.
 		_selectedMessage.value = message
+		_selectedMessageContent.value = null
 		viewModelScope.launch {
 			getMessages(message.id)
 				.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 				.collect { result ->
 					result?.fold(
-						onSuccess = { _selectedMessageContent.value = it.content },
+						onSuccess = {
+							_selectedMessage.value = it
+							_selectedMessageContent.value = it.content
+						},
 						onFailure = {
 							_selectedMessage.value = null
 						} // TODO: Instead of having `null` as loading, use a sealed class to handle error responses as well.
