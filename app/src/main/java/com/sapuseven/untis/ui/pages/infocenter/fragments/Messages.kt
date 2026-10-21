@@ -1,5 +1,6 @@
 package com.sapuseven.untis.ui.pages.infocenter.fragments
 
+import android.util.Log
 import android.widget.TextView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -262,6 +263,15 @@ private fun Message.attachmentSelection(): MessageAttachmentSelection? {
 	val attachments =
 		(attachments.orEmpty() + listOfNotNull(blobAttachment) + storageAttachments.orEmpty())
 			.filter { it.downloadable != false }
+
+	// TODO(debug): temporary diagnostic logging, remove before merging.
+	Log.d(
+		"MessageAttachments",
+		"message $id: hasAttachments=$hasAttachments " +
+			"attachments=${this.attachments?.size} blob=${blobAttachment != null} " +
+			"storage=${storageAttachments?.size} -> selectable=${attachments.size} " +
+			"(${attachments.joinToString { "${it.name}:${it.downloadable}:${it.attachmentType}" }})"
+	)
 
 	return if (attachments.isEmpty()) null
 	else MessageAttachmentSelection(messageId = id, attachments = attachments)
