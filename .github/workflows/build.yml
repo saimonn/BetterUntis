@@ -7,13 +7,12 @@ on:
 
 jobs:
   build:
-    name: Build ${{ matrix.variant }} APKs (${{ matrix.target }})
+    name: Build ${{ matrix.variant }} APKs
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         variant: [ debug, release ]
-        target: [ Gms, Foss ]
 
     steps:
       - uses: actions/checkout@v4
@@ -39,21 +38,21 @@ jobs:
           echo 'export KEY_DEBUG_PASSWORD=$(echo "$KEY_DEBUG_PASSWORD_ENCODED" | base64 --decode)' >> $BASH_ENV
           echo 'export KEY_RELEASE_PASSWORD=$(echo "$KEY_RELEASE_PASSWORD_ENCODED" | base64 --decode)' >> $BASH_ENV
 
-      - name: Assemble ${{ matrix.target }} debug APK
+      - name: Assemble debug APK
         if: ${{ matrix.variant == 'debug' }}
-        run: ./gradlew assemble${{ matrix.target }}Debug
+        run: ./gradlew assembleDebug
   
-      - name: Assemble ${{ matrix.target }} release APK
+      - name: Assemble release APK
         if: ${{ matrix.variant == 'release' }}
-        run: ./gradlew assemble${{ matrix.target }}Release
+        run: ./gradlew assembleRelease
   
-      - name: Upload ${{ matrix.target }} ${{ matrix.variant }} APKs
+      - name: Upload ${{ matrix.variant }} APKs
         uses: actions/upload-artifact@v4
         with:
-          name: betteruntis-${{ matrix.target }}-${{ matrix.variant }}
+          name: betteruntis-${{ matrix.variant }}
           path: |
-            app/build/outputs/apk/*/${{ matrix.variant }}/*.apk
-            app/build/outputs/apk/*/${{ matrix.variant }}/output-metadata.json
+            app/build/outputs/apk/${{ matrix.variant }}/*.apk
+            app/build/outputs/apk/${{ matrix.variant }}/output-metadata.json
 
   publish-develop:
     name: Publish debug build on sapuseven.com
@@ -66,7 +65,7 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: betteruntis-Foss-debug
+          name: betteruntis-debug
           path: outputs
          
       - name: Upload build artifacts via SSH
@@ -78,6 +77,6 @@ jobs:
           key: ${{ secrets.SSH_DEPLOY_KEY }}
           fingerprint: ${{ secrets.SSH_DEPLOY_FINGERPRINT }}
           source: |
-            outputs/foss/debug/*
+            outputs/debug/*
           target: ${{ secrets.SSH_DEPLOY_PATH }}/debug/${{github.run_number}}
           strip_components: 3

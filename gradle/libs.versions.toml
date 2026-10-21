@@ -25,7 +25,6 @@ dagger = "2.56.2"
 desugar-jdk = "2.1.5"
 error_prone_annotations = "2.38.0"
 fuel = "2.3.1"
-gms = "16.1.0"
 hamcrest = "3.0"
 journeyapps-zxing = "4.3.0"
 junit = "5.13.1"
@@ -96,7 +95,6 @@ fornewid-material-motion-compose-core = { module = "io.github.fornewid:material-
 fuel = { module = "com.github.kittinunf.fuel:fuel", version.ref = "fuel" }
 fuel-coroutines = { module = "com.github.kittinunf.fuel:fuel-coroutines", version.ref = "fuel" }
 fuel-serialization = { module = "com.github.kittinunf.fuel:fuel-kotlinx-serialization", version.ref = "fuel" }
-gms-code-scanner = { module = "com.google.android.gms:play-services-code-scanner", version.ref = "gms" }
 hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
 hamcrest-library = { module = "org.hamcrest:hamcrest-library", version.ref = "hamcrest" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "dagger" }

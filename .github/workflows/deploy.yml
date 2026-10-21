@@ -129,10 +129,8 @@ jobs:
               "${NOTES_ARG[@]}"
 
           mkdir -p dist
-          cp app/build/outputs/apk/gms/release/app-gms-release.apk \
+          cp app/build/outputs/apk/release/app-release.apk \
              "dist/BetterUntis-$TAG.apk"
-          cp app/build/outputs/apk/foss/release/app-foss-release.apk \
-             "dist/BetterUntis-$TAG-foss.apk"
           gh release upload "$TAG" dist/*.apk
 
   fastlane:
@@ -167,7 +165,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
             for f in fastlane/metadata/android/*/changelogs; do [[ -e "$f/$TAG.txt" ]] && cp "$f/$TAG.txt" "$f/default.txt"; done;
-            bundle exec fastlane deploy aab:'./app/build/outputs/bundle/gmsRelease/app-gms-release.aab'
+            bundle exec fastlane deploy aab:'./app/build/outputs/bundle/release/app-release.aab'
 
   fdroid:
     name: Create Release for FDroid
@@ -197,7 +195,7 @@ jobs:
           git checkout $FDROID_BRANCH
           git reset --hard $TAG
           
-          versionCode=$(jq '.elements[0].versionCode' ./app/build/outputs/apk/gms/release/output-metadata.json)
+          versionCode=$(jq '.elements[0].versionCode' ./app/build/outputs/apk/release/output-metadata.json)
           sed -i "s/versionCode = generateVersionCode()/versionCode = $versionCode/" ./app/build.gradle.kts
 
           git add ./app/build.gradle.kts
@@ -228,9 +226,9 @@ jobs:
           username: ${{ secrets.SSH_DEPLOY_USER }}
           key: ${{ secrets.SSH_DEPLOY_KEY }}
           fingerprint: ${{ secrets.SSH_DEPLOY_FINGERPRINT }}
-          source: app/build/outputs/apk/gms/release/*
+          source: app/build/outputs/apk/release/*
           target: ${{ secrets.SSH_DEPLOY_PATH }}/release/${{ github.ref_name }}
-          strip_components: 6
+          strip_components: 5
 
       - name: Upload mapping via SSH
         uses: appleboy/scp-action@v1
@@ -240,6 +238,6 @@ jobs:
           username: ${{ secrets.SSH_DEPLOY_USER }}
           key: ${{ secrets.SSH_DEPLOY_KEY }}
           fingerprint: ${{ secrets.SSH_DEPLOY_FINGERPRINT }}
-          source: app/build/outputs/mapping/gmsRelease/*
+          source: app/build/outputs/mapping/release/*
           target: ${{ secrets.SSH_DEPLOY_PATH }}/release/${{ github.ref_name }}
           strip_components: 5
