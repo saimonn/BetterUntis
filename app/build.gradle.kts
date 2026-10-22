@@ -24,6 +24,19 @@ fun generateVersionCode(): Int {
 	return (Date().time / 1000 / 60).toInt()
 }
 
+/**
+ * The version name shown to the user.
+ *
+ * Release tags are not part of the source tree, so the value is injected by
+ * the release workflow through `VERSION_NAME` (falling back to the Gradle
+ * property of the same name). Local builds keep [DEFAULT_VERSION_NAME].
+ */
+fun resolveVersionName(): String {
+	val fromEnvironment = System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }
+	val fromProperty = (findProperty("versionName") as? String)?.takeIf { it.isNotBlank() }
+	return fromEnvironment ?: fromProperty ?: "5.0.0-beta04"
+}
+
 android {
 	compileSdk = 35
 	namespace = "com.sapuseven.untis"
@@ -37,7 +50,7 @@ android {
 		minSdk = 21
 		targetSdk = 35
 		versionCode = generateVersionCode()
-		versionName = "5.0.0-beta04"
+		versionName = resolveVersionName()
 		vectorDrawables.useSupportLibrary = true
 		testInstrumentationRunner = "com.sapuseven.untis.HiltTestRunner"
 
