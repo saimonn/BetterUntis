@@ -131,7 +131,7 @@ fun AppNavHost(
 			popExitTransition = {
 				fadeOut(animationSpec = tween(500))
 			},
-		) { Timetable() }
+		) { Timetable(onNavigate = { navigator.navigate(it) }) }
 
 		composable<AppRoutes.InfoCenter>(
 			enterTransition = {

@@ -5,6 +5,7 @@
     <string name="activity_title_info_center">Info Center</string>
     <string name="activity_title_messenger">Messenger</string>
     <string name="activity_title_settings">Settings</string>
+    <string name="activity_title_timetable">Timetable</string>
     <string name="all_absences">Absences</string>
     <string name="all_add">Add</string>
     <string name="all_anonymous">Anonymous</string>
@@ -103,7 +104,9 @@
 	<string name="infocenter_messages_attachment_image_failed">The image could not be loaded.</string>
 	<string name="infocenter_messages_attachment_image_retry">Tap to retry</string>
 	<string name="infocenter_messages_attachment_no_app">No app found to open this file</string>
+	<string name="infocenter_messages_detail_failed">The message could not be loaded.</string>
 	<string name="infocenter_messages_empty">No messages</string>
+	<string name="infocenter_messages_retry">Retry</string>
 	<string name="infocenter_officehours_empty">No office hours</string>
 	<string name="infocenter_timeformat">%2$s, %1$s - %4$s, %3$s</string>
 	<string name="infocenter_timeformat_sameday">%2$s - %4$s, %1$s</string>
