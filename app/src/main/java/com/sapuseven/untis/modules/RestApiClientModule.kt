@@ -53,7 +53,7 @@ class DefaultMessagesApiFactory @Inject constructor(
 		) {
 			it.expectSuccess = true
 			it.install(ContentNegotiation) {
-				json()
+				json(restJson)
 			}
 			it.install(HttpTimeout) {
 				requestTimeoutMillis = REQUEST_TIMEOUT_MS

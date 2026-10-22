@@ -11,6 +11,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.serializer
 import java.io.File
 import javax.inject.Inject
@@ -49,7 +50,7 @@ class UntisMessagesRepository @Inject constructor(
 	override fun messagesSource(): CachedSource<Unit, MessagesResponse> {
 		return CachedSource(
 			source = { params ->
-				messagesApiFactory.create().getMessages().body()
+				parseMessagesResponse(messagesApiFactory.create().getMessages().response.bodyAsText())
 			},
 			cache = DiskCache(File(cacheDir, "messenger/messages"), serializer()),
 			timeProvider = timeProvider

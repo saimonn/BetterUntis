@@ -32,7 +32,12 @@ class GetMessagesUseCaseImpl @Inject constructor(
 
 	override operator fun invoke(): Flow<Result<List<Message>>> = messagesRepository.messagesSource()
 		.get(Unit, FromCache.CACHED_THEN_LOAD, maxAge = ONE_HOUR, additionalKey = userRepository.currentUser!!.id)
-		.map { (it.incomingMessages ?: emptyList()) + (it.readConfirmationMessages ?: emptyList()) }
+		.map {
+			// A message that is waiting for a read confirmation is returned in a separate list.
+			// It must not be missing from the inbox and must not show up twice either.
+			((it.incomingMessages ?: emptyList()) + (it.readConfirmationMessages ?: emptyList()))
+				.distinctBy(Message::id)
+		}
 		.map(Result.Companion::success)
 		.catch { emit(Result.failure(it)) }
 

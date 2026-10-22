@@ -24,7 +24,14 @@ object LocalDateTimeSerializer : KSerializer<LocalDateTime> {
 	}
 
 	override fun deserialize(decoder: Decoder): LocalDateTime {
-		val string = decoder.decodeString()
+		// The API occasionally sends a date as a number or as null; the whole message list must
+		// not fail because of a single unexpected value.
+		val string = try {
+			decoder.decodeString()
+		} catch (e: Exception) {
+			return Instant.ofEpochMilli(0).atZone(ZoneId.systemDefault()).toLocalDateTime()
+		}
+
 		return try {
 			LocalDateTime.parse(string, format)
 		} catch (e: DateTimeParseException) {

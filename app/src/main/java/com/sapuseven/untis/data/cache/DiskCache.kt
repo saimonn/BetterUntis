@@ -34,7 +34,18 @@ class DiskCache<KeyType : Any, ValueType : Any>(
 			getCacheFile(key).let { cacheFile ->
 				if (!cacheFile.exists()) return null
 
-				val decoded = cacheFile.readBytes().let { Cbor.decodeFromByteArray(valueSerializer, it) }
+				// A cache entry that cannot be read must not prevent the source from being
+				// requested: the callers only read the cache before loading from the server,
+				// so an exception here made the screen show an error for as long as the file
+				// existed. Delete it and let the caller load the data again instead.
+				val decoded = try {
+					cacheFile.readBytes().let { Cbor.decodeFromByteArray(valueSerializer, it) }
+				} catch (e: Exception) {
+					Log.w("DiskCache", "Discarding unreadable cache entry $key", e)
+					cacheFile.delete()
+					return null
+				}
+
 				Log.d("DiskCache", "get: $key -> $decoded")
 				return CachedData(decoded, cacheFile.lastModified())
 			}
