@@ -100,6 +100,8 @@
 	<string name="infocenter_events_exam_name_long">%1$s - %2$s</string>
 	<string name="infocenter_messages_attachments">Attachments</string>
 	<string name="infocenter_messages_attachment_download_failed">%1$s could not be downloaded</string>
+	<string name="infocenter_messages_attachment_image_failed">The image could not be loaded.</string>
+	<string name="infocenter_messages_attachment_image_retry">Tap to retry</string>
 	<string name="infocenter_messages_attachment_no_app">No app found to open this file</string>
 	<string name="infocenter_messages_empty">No messages</string>
 	<string name="infocenter_officehours_empty">No office hours</string>

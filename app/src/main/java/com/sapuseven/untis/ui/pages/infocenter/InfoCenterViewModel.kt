@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import javax.inject.Inject
 
@@ -81,6 +83,12 @@ class InfoCenterViewModel @Inject constructor(
 	private val attachmentDownloads = mutableMapOf<String, Flow<Result<File>>>()
 
 	/**
+	 * Serialises the attachment downloads: every download starts with a login round trip, so
+	 * running them all at once makes the whole message needlessly slow and flaky.
+	 */
+	private val attachmentDownloadMutex = Mutex()
+
+	/**
 	 * Downloads the given attachment (if it is not cached yet) and emits the resulting file.
 	 *
 	 * Each attachment is only downloaded once, subsequent calls return the cached file.
@@ -89,7 +97,13 @@ class InfoCenterViewModel @Inject constructor(
 		val key = DownloadMessageAttachmentUseCaseImpl.fileName(messageId, attachment)
 		val download = attachmentDownloads.getOrPut(key) {
 			flow {
-				emit(runCatching { downloadMessageAttachment(messageId, attachment) })
+				emit(
+					runCatching {
+						attachmentDownloadMutex.withLock {
+							downloadMessageAttachment(messageId, attachment)
+						}
+					}
+				)
 			}.onEach {
 				if (it.isFailure)
 					attachmentDownloads.remove(key)

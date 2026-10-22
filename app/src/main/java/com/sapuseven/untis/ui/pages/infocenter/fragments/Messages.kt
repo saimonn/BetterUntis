@@ -100,6 +100,10 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 	// The image attachment currently shown in the full screen viewer.
 	var openImage by remember { mutableStateOf<Pair<File, String>?>(null) }
 
+	// Hoisted so that the composables below receive a stable reference instead of a new method
+	// reference on every recomposition.
+	val downloadAttachment = remember(viewModel) { viewModel::downloadAttachment }
+
 	Crossfade(targetState = uiState, label = "InfoCenter Messages Content") { state ->
 		SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
 			LazyColumn(
@@ -210,7 +214,7 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 				onShowAttachments = {
 					showMessageAttachments = true
 				},
-				downloadAttachment = viewModel::downloadAttachment,
+				downloadAttachment = downloadAttachment,
 				onImageClick = { file, name -> openImage = file to name },
 			)
 
@@ -232,7 +236,7 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 				messageId = selection.messageId,
 				attachments = selection.attachments,
 				onDismiss = { showMessageAttachments = false },
-				downloadAttachment = viewModel::downloadAttachment
+				downloadAttachment = downloadAttachment
 			)
 		}
 	}
