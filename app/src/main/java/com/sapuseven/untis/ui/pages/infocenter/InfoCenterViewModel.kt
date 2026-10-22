@@ -1,6 +1,5 @@
 package com.sapuseven.untis.ui.pages.infocenter
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sapuseven.untis.api.model.untis.enumeration.Right
@@ -112,15 +111,10 @@ class InfoCenterViewModel @Inject constructor(
 				.collect { result ->
 					result?.fold(
 						onSuccess = {
-							// TODO(debug): temporary diagnostic logging, remove before merging.
-							Log.d("InfoCenterViewModel", "detail ${it.id} loaded: hasAttachments=${it.hasAttachments} " +
-								"attachments=${it.attachments?.size} blob=${it.blobAttachment != null} storage=${it.storageAttachments?.size}")
 							_selectedMessage.value = it
 							_selectedMessageContent.value = it.content
 						},
 						onFailure = {
-							// TODO(debug): temporary diagnostic logging, remove before merging.
-							Log.w("InfoCenterViewModel", "loading detail ${message.id} failed", it)
 							_selectedMessage.value = null
 						} // TODO: Instead of having `null` as loading, use a sealed class to handle error responses as well.
 					)

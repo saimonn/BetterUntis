@@ -1,6 +1,5 @@
 package com.sapuseven.untis.modules
 
-import android.util.Log
 import com.sapuseven.untis.api.client.UserDataApi
 import com.sapuseven.untis.api.rest.MessagesApi
 import com.sapuseven.untis.data.repository.UserRepository
@@ -16,7 +15,6 @@ import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.statement.bodyAsText
 import io.ktor.serialization.kotlinx.json.json
 import javax.inject.Inject
 import kotlin.reflect.KProperty
@@ -62,19 +60,6 @@ class DefaultMessagesApiFactory @Inject constructor(
 					val exceptionResponse = clientException.response
 					val errorResponse = exceptionResponse.body<ErrorResponse>()
 					throw UntisRestApiException(errorResponse)
-				}
-				validateResponse { response ->
-					// TODO(debug): temporary diagnostic logging, remove before merging.
-					val request = response.call.request
-					Log.d(
-						"MessagesApi",
-						"${request.method.value} ${request.url} -> ${response.status.value}"
-					)
-					if (request.url.encodedPath.contains("/view/v1/messages")) {
-						runCatching { response.bodyAsText() }
-							.onSuccess { Log.d("MessagesApi", "body: $it") }
-							.onFailure { Log.d("MessagesApi", "body unavailable: $it") }
-					}
 				}
 			}
 		}
