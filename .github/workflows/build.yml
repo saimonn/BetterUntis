@@ -16,6 +16,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # Keep the artifacts aligned with the release workflow: build under the
+      # fork application id derived from the repository owner.
+      - name: Resolve application id
+        id: app_id
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          owner=$(printf '%s' "$OWNER" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
+          [[ "$owner" =~ ^[a-z] ]] || owner="u$owner"
+          echo "value=com.github.${owner}.betteruntis" >> "$GITHUB_OUTPUT"
+
       - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
@@ -40,10 +52,16 @@ jobs:
 
       - name: Assemble debug APK
         if: ${{ matrix.variant == 'debug' }}
+        env:
+          APPLICATION_ID: ${{ steps.app_id.outputs.value }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: ./gradlew assembleDebug
   
       - name: Assemble release APK
         if: ${{ matrix.variant == 'release' }}
+        env:
+          APPLICATION_ID: ${{ steps.app_id.outputs.value }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: ./gradlew assembleRelease
   
       - name: Upload ${{ matrix.variant }} APKs

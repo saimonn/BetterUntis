@@ -37,6 +37,34 @@ fun resolveVersionName(): String {
 	return fromEnvironment ?: fromProperty ?: "5.0.0-beta04"
 }
 
+/**
+ * The application id (the package name the app is installed under).
+ *
+ * Forks publish under their own id (e.g. `com.github.<owner>.betteruntis`, injected by the
+ * release workflow from the GitHub namespace) so that they do not collide with an upstream
+ * installation. The value is read from `APPLICATION_ID`, falling back to the Gradle property of
+ * the same name and finally to the upstream id. The `namespace` (and therefore the Java/Kotlin
+ * packages) always stays `com.sapuseven.untis`: it is the source layout, not the app identity.
+ */
+fun resolveApplicationId(): String {
+	val fromEnvironment = System.getenv("APPLICATION_ID")?.takeIf { it.isNotBlank() }
+	val fromProperty = (findProperty("applicationId") as? String)?.takeIf { it.isNotBlank() }
+	return fromEnvironment ?: fromProperty ?: "com.sapuseven.untis"
+}
+
+/**
+ * The GitHub repository the app links to (about screen, update check, contributors).
+ *
+ * GitHub Actions exports `GITHUB_REPOSITORY` (`owner/repo`) to every step, so fork builds
+ * automatically point to the fork instead of the upstream repository. Local builds can override
+ * it with the Gradle property `githubRepository`.
+ */
+fun resolveGithubRepository(): String {
+	val fromEnvironment = System.getenv("GITHUB_REPOSITORY")?.takeIf { it.isNotBlank() }
+	val fromProperty = (findProperty("githubRepository") as? String)?.takeIf { it.isNotBlank() }
+	return fromEnvironment ?: fromProperty ?: "SapuSeven/BetterUntis"
+}
+
 android {
 	compileSdk = 35
 	namespace = "com.sapuseven.untis"
@@ -46,7 +74,7 @@ android {
 	}
 
 	defaultConfig {
-		applicationId = "com.sapuseven.untis"
+		applicationId = resolveApplicationId()
 		minSdk = 21
 		targetSdk = 35
 		versionCode = generateVersionCode()
@@ -55,6 +83,7 @@ android {
 		testInstrumentationRunner = "com.sapuseven.untis.HiltTestRunner"
 
 		buildConfigField("String", "SENTRY_DSN", "\"https://d3b77222abce4fcfa74fda2185e0f8dc@o1136770.ingest.sentry.io/6188900\"")
+		buildConfigField("String", "GITHUB_REPOSITORY", "\"${resolveGithubRepository()}\"")
 
 		ksp {
 			arg("room.schemaLocation", "$projectDir/schemas")

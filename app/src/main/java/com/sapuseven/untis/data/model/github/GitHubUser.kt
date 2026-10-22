@@ -1,12 +1,16 @@
 package com.sapuseven.untis.data.model.github
 
+import com.sapuseven.untis.BuildConfig
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 object GitHubApi {
 	const val URL_GITHUB_PRIVACY_POLICY = "https://docs.github.com/en/github/site-policy/github-privacy-statement"
-	const val URL_GITHUB_REPOSITORY = "https://github.com/SapuSeven/BetterUntis"
-	const val URL_GITHUB_REPOSITORY_API = "https://api.github.com/repos/SapuSeven/BetterUntis"
+
+	// Injected at build time from GITHUB_REPOSITORY, so that forks link to their own
+	// repository (about screen, update check, contributors) instead of the upstream one.
+	val URL_GITHUB_REPOSITORY = "https://github.com/${BuildConfig.GITHUB_REPOSITORY}"
+	val URL_GITHUB_REPOSITORY_API = "https://api.github.com/repos/${BuildConfig.GITHUB_REPOSITORY}"
 }
 
 @Serializable

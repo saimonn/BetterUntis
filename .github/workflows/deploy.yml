@@ -31,6 +31,19 @@ jobs:
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: echo "name=$TAG" >> "$GITHUB_OUTPUT"
 
+      # Forks must not ship under the upstream application id: derive a stable
+      # id from the repository owner instead of hardcoding com.sapuseven.untis.
+      # The result looks like com.github.<owner>.betteruntis (lowercase, as
+      # required by the Android package name grammar).
+      - name: Resolve application id
+        id: app_id
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          owner=$(printf '%s' "$OWNER" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
+          [[ "$owner" =~ ^[a-z] ]] || owner="u$owner"
+          echo "value=com.github.${owner}.betteruntis" >> "$GITHUB_OUTPUT"
+
       - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
@@ -83,6 +96,8 @@ jobs:
       - name: Assemble release
         env:
           VERSION_NAME: ${{ steps.tag.outputs.name }}
+          APPLICATION_ID: ${{ steps.app_id.outputs.value }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_DEBUG_PASSWORD: ${{ secrets.KEY_DEBUG_PASSWORD }}
           KEY_RELEASE_PASSWORD: ${{ secrets.KEY_RELEASE_PASSWORD }}
