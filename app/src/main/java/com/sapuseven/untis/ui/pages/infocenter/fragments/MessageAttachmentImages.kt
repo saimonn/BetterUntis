@@ -5,22 +5,29 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,13 +42,17 @@ import com.sapuseven.untis.ui.pages.infocenter.AttachmentUiState
 import java.io.File
 
 /**
- * Shows all image attachments of a message inline, below its content.
+ * Shows all attachments of a message inline, below its content.
  *
- * Tapping an image opens [MessageImageDialog] with the full size picture.
+ * Images are shown as pictures, every other attachment is shown as a file row (the same way it is
+ * shown in the attachment list) so that it is not only reachable through the attachment icon.
  *
- * The download state is owned by the view model: an image that was already shown (cached on disk)
- * is displayed immediately when the message is opened again, and a download can never be stuck in
- * a loading state.
+ * Tapping an image opens [MessageImageDialog] with the full size picture, tapping a file downloads
+ * it and hands it over to the app that can display it.
+ *
+ * The download state is owned by the view model: an attachment that was already shown (cached on
+ * disk) is displayed immediately when the message is opened again, and a download can never be
+ * stuck in a loading state.
  */
 @Composable
 fun MessageAttachments(
@@ -52,10 +63,12 @@ fun MessageAttachments(
 	onLoad: (MessageAttachment) -> Unit,
 	onRetry: (MessageAttachment) -> Unit,
 	onImageClick: (File, String) -> Unit,
+	onFileClick: (File) -> Unit,
 	modifier: Modifier = Modifier,
 ) {
 	val images = remember(attachments) { attachments.filter { it.isInlineImage() } }
-	if (images.isEmpty()) return
+	val files = remember(attachments) { attachments.filterNot { it.isInlineImage() } }
+	if (images.isEmpty() && files.isEmpty()) return
 
 	Column(
 		modifier = modifier
@@ -71,6 +84,18 @@ fun MessageAttachments(
 					onLoad = onLoad,
 					onRetry = onRetry,
 					onImageClick = onImageClick
+				)
+			}
+		}
+
+		files.forEach { attachment ->
+			key(attachment.id, attachment.attachmentName()) {
+				MessageAttachmentFile(
+					attachment = attachment,
+					state = states[keyOf(attachment)],
+					onLoad = onLoad,
+					onRetry = onRetry,
+					onFileClick = onFileClick
 				)
 			}
 		}
@@ -115,6 +140,104 @@ private fun MessageAttachmentImage(
 		)
 
 		else -> MessageAttachmentImagePlaceholder()
+	}
+}
+
+/**
+ * A non-image attachment shown inline, styled like an entry of the attachment list.
+ *
+ * Nothing is downloaded before the user taps the row, some attachments can be large. Once the
+ * download finished, the file is opened immediately.
+ */
+@Composable
+private fun MessageAttachmentFile(
+	attachment: MessageAttachment,
+	state: AttachmentUiState?,
+	onLoad: (MessageAttachment) -> Unit,
+	onRetry: (MessageAttachment) -> Unit,
+	onFileClick: (File) -> Unit,
+) {
+	val name = attachment.attachmentName()
+	var openWhenReady by remember(attachment) { mutableStateOf(false) }
+	val failed = state as? AttachmentUiState.Failed
+	val loading = openWhenReady || state is AttachmentUiState.Loading
+
+	LaunchedEffect(state, openWhenReady) {
+		when {
+			!openWhenReady -> Unit
+			state is AttachmentUiState.Ready -> {
+				openWhenReady = false
+				onFileClick(state.file)
+			}
+
+			state is AttachmentUiState.Failed -> openWhenReady = false
+		}
+	}
+
+	Row(
+		modifier = Modifier
+			.fillMaxWidth()
+			.clip(RoundedCornerShape(8.dp))
+			.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+			.clickable {
+				when (val current = state) {
+					is AttachmentUiState.Ready -> onFileClick(current.file)
+					is AttachmentUiState.Failed -> {
+						onRetry(attachment)
+						openWhenReady = true
+					}
+
+					else -> {
+						onLoad(attachment)
+						openWhenReady = true
+					}
+				}
+			}
+			.padding(12.dp),
+		verticalAlignment = Alignment.CenterVertically,
+		horizontalArrangement = Arrangement.spacedBy(12.dp),
+	) {
+		Icon(
+			painter = painterResource(id = R.drawable.infocenter_attachment),
+			contentDescription = null
+		)
+
+		Column(modifier = Modifier.weight(1f)) {
+			Text(
+				text = name,
+				style = MaterialTheme.typography.labelLarge,
+				maxLines = 1,
+				overflow = TextOverflow.Ellipsis
+			)
+
+			if (failed != null) {
+				Text(
+					text = stringResource(id = R.string.infocenter_messages_attachment_file_failed),
+					style = MaterialTheme.typography.bodySmall
+				)
+				if (!failed.reason.isNullOrBlank()) {
+					Text(
+						text = failed.reason,
+						style = MaterialTheme.typography.bodySmall,
+						color = MaterialTheme.colorScheme.onSurfaceVariant,
+						maxLines = 2,
+						overflow = TextOverflow.Ellipsis
+					)
+				}
+				Text(
+					text = stringResource(id = R.string.infocenter_messages_attachment_image_retry),
+					style = MaterialTheme.typography.labelSmall,
+					color = MaterialTheme.colorScheme.primary
+				)
+			}
+		}
+
+		if (loading && failed == null) {
+			CircularProgressIndicator(
+				modifier = Modifier.size(20.dp),
+				strokeWidth = 2.dp
+			)
+		}
 	}
 }
 

@@ -103,6 +103,7 @@
 	<string name="infocenter_messages_attachment_download_failed">%1$s could not be downloaded</string>
 	<string name="infocenter_messages_attachment_image_failed">The image could not be loaded.</string>
 	<string name="infocenter_messages_attachment_image_retry">Tap to retry</string>
+	<string name="infocenter_messages_attachment_file_failed">The attachment could not be loaded.</string>
 	<string name="infocenter_messages_attachment_no_app">No app found to open this file</string>
 	<string name="infocenter_messages_detail_failed">The message could not be loaded.</string>
 	<string name="infocenter_messages_empty">No messages</string>

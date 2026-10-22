@@ -1,5 +1,7 @@
 package com.sapuseven.untis.ui.pages.infocenter.fragments
 
+import android.text.method.LinkMovementMethod
+import android.util.TypedValue
 import android.widget.TextView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -12,6 +14,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +52,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +69,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.sapuseven.untis.R
 import com.sapuseven.untis.api.model.untis.Attachment
 import com.sapuseven.untis.api.model.untis.MessageOfDay
+import com.sapuseven.untis.helpers.openAttachment
 import com.sapuseven.untis.model.rest.Message
 import com.sapuseven.untis.model.rest.MessageAttachment
 import com.sapuseven.untis.ui.dialogs.AttachmentsDialog
@@ -91,6 +97,12 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 	val selectedMessageContent by viewModel.selectedMessageContent.collectAsStateWithLifecycle()
 	val messageDetailError by viewModel.messageDetailError.collectAsStateWithLifecycle()
 	val attachmentStates by viewModel.attachmentStates.collectAsStateWithLifecycle()
+
+	val context = LocalContext.current
+
+	// Messages of the day are not part of the REST messages, they have no detail endpoint. Their
+	// content is already included in the list response, so the detail is shown from the local data.
+	var selectedMessageOfDay by remember { mutableStateOf<MessageOfDay?>(null) }
 
 	var attachmentsDialog by remember { mutableStateOf<List<Attachment>?>(null) }
 
@@ -133,7 +145,8 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 										Card(
 											modifier = Modifier
 												.padding(horizontal = 16.dp, vertical = 8.dp)
-												.clip(CardDefaults.shape)
+												.clip(CardDefaults.shape),
+											onClick = { selectedMessageOfDay = message }
 										) {
 											MessagePreview(
 												subject = message.subject,
@@ -226,6 +239,12 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 				loadAttachment = loadAttachment,
 				retryAttachment = retryAttachment,
 				onImageClick = { file, name -> openImage = file to name },
+				onFileClick = { file -> openAttachment(context, file) },
+			)
+
+			MessageOfDayDetails(
+				message = selectedMessageOfDay,
+				onDismiss = { selectedMessageOfDay = null }
 			)
 
 			BackHandler(selectedMessage != null) {
@@ -317,6 +336,7 @@ private fun SharedTransitionScope.MessageDetails(
 	loadAttachment: (Long, MessageAttachment) -> Unit,
 	retryAttachment: (Long, MessageAttachment) -> Unit,
 	onImageClick: (File, String) -> Unit,
+	onFileClick: (File) -> Unit,
 ) {
 	AnimatedContent(
 		modifier = modifier.fillMaxSize(),
@@ -390,7 +410,8 @@ private fun SharedTransitionScope.MessageDetails(
 										keyOf = { attachmentKey(selection.messageId, it) },
 										onLoad = { loadAttachment(selection.messageId, it) },
 										onRetry = { retryAttachment(selection.messageId, it) },
-										onImageClick = onImageClick
+										onImageClick = onImageClick,
+										onFileClick = onFileClick
 									)
 								}
 
@@ -490,36 +511,30 @@ private fun SharedTransitionScope.MessagePreview(
 	hasAttachments: Boolean = attachments.isNullOrEmpty().not(),
 	onShowAttachments: () -> Unit = {}
 ) {
-	val textColor = MaterialTheme.colorScheme.onSurfaceVariant
+	// The body of a message can be HTML (e.g. for messages of the day). A single line preview has
+	// no room for formatting, so only its text is shown instead of the raw tags.
+	val previewSubject = remember(subject) { subject.toPreviewText() }
+	val previewBody = remember(body) { body?.toPreviewText() }
+
 	val textContent = @Composable {
 		Column {
-			if (subject.isNotBlank()) {
+			if (previewSubject.isNotBlank()) {
 				Text(
-					text = subject,
+					text = previewSubject,
 					maxLines = 1,
 					overflow = TextOverflow.Ellipsis,
 					fontWeight = if (!read) FontWeight.Bold else null,
 					color = MaterialTheme.colorScheme.onSurface
 				)
-				body?.let {
-					Text(
-						text = body,
-						maxLines = 1,
-						overflow = TextOverflow.Ellipsis,
-						fontWeight = if (!read) FontWeight.Bold else null,
-						color = MaterialTheme.colorScheme.onSurfaceVariant
-					)
-				}
-			} else {
-				body?.let {
-					AndroidView(factory = { context ->
-						TextView(context).apply {
-							setTextColor(textColor.toArgb())
-						}
-					}, update = {
-						it.text = HtmlCompat.fromHtml(body, HtmlCompat.FROM_HTML_MODE_COMPACT)
-					})
-				}
+			}
+			previewBody?.takeIf { it.isNotBlank() }?.let {
+				Text(
+					text = it,
+					maxLines = 1,
+					overflow = TextOverflow.Ellipsis,
+					fontWeight = if (!read) FontWeight.Bold else null,
+					color = MaterialTheme.colorScheme.onSurfaceVariant
+				)
 			}
 		}
 	}
@@ -592,6 +607,116 @@ private fun SharedTransitionScope.MessagePreview(
 		}
 	}
 }
+
+/**
+ * Shows a message of the day from the local data.
+ *
+ * These messages are not part of the REST messages and have no detail endpoint, but their full
+ * content (HTML body and attachment URLs) is already part of the list response.
+ */
+@Composable
+private fun MessageOfDayDetails(
+	message: MessageOfDay?,
+	onDismiss: () -> Unit,
+) {
+	val uriHandler = LocalUriHandler.current
+
+	AnimatedContent(
+		targetState = message,
+		transitionSpec = { fadeIn() togetherWith fadeOut() },
+		label = "MessageOfDayDetails"
+	) { targetMessage ->
+		val subject = remember(targetMessage?.subject) {
+			targetMessage?.subject?.toPreviewText().orEmpty()
+		}
+
+		Box(modifier = Modifier.fillMaxSize()) {
+			if (targetMessage != null) {
+				BackHandler { onDismiss() }
+
+				Surface(modifier = Modifier.fillMaxSize()) {
+					Card(
+						modifier = Modifier
+							.padding(horizontal = 16.dp, vertical = 8.dp)
+							.clip(CardDefaults.shape)
+					) {
+						Column(
+							modifier = Modifier
+								.verticalScroll(rememberScrollState())
+								.padding(16.dp),
+							verticalArrangement = Arrangement.spacedBy(12.dp)
+						) {
+							if (subject.isNotBlank()) {
+								Text(
+									text = subject,
+									style = MaterialTheme.typography.titleMedium,
+									modifier = Modifier.fillMaxWidth()
+								)
+							}
+
+							HtmlContent(html = targetMessage.body)
+
+							targetMessage.attachments.forEach { attachment ->
+								Row(
+									modifier = Modifier
+										.fillMaxWidth()
+										.clip(RoundedCornerShape(8.dp))
+										.clickable { uriHandler.openUri(attachment.url) }
+										.padding(vertical = 8.dp),
+									verticalAlignment = Alignment.CenterVertically,
+									horizontalArrangement = Arrangement.spacedBy(12.dp)
+								) {
+									Icon(
+										painter = painterResource(id = R.drawable.infocenter_attachment),
+										contentDescription = null
+									)
+									Text(
+										text = attachment.name,
+										style = MaterialTheme.typography.bodyLarge,
+										maxLines = 1,
+										overflow = TextOverflow.Ellipsis
+									)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Renders an HTML message body with the formatting the sender intended.
+ */
+@Composable
+private fun HtmlContent(html: String, modifier: Modifier = Modifier) {
+	val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
+
+	AndroidView(
+		modifier = modifier.fillMaxWidth(),
+		factory = { context ->
+			TextView(context).apply {
+				setTextColor(textColor)
+				setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+				movementMethod = LinkMovementMethod.getInstance()
+			}
+		},
+		update = {
+			it.setTextColor(textColor)
+			it.text = HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_COMPACT)
+		}
+	)
+}
+
+/**
+ * A one line preview of a possibly HTML formatted text.
+ */
+private fun String.toPreviewText(): String =
+	HtmlCompat.fromHtml(this, HtmlCompat.FROM_HTML_MODE_COMPACT)
+		.toString()
+		.replace(Regex("\\s+"), " ")
+		.trim()
 
 sealed interface MessagesUiState {
 	data object Loading : MessagesUiState

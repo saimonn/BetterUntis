@@ -1,9 +1,5 @@
 package com.sapuseven.untis.ui.dialogs
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
-import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -38,13 +34,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
-import com.sapuseven.untis.BuildConfig
 import com.sapuseven.untis.R
 import com.sapuseven.untis.helpers.attachmentName
+import com.sapuseven.untis.helpers.openAttachment
 import com.sapuseven.untis.model.rest.MessageAttachment
 import com.sapuseven.untis.ui.pages.infocenter.AttachmentUiState
-import java.io.File
 
 /**
  * Shows the attachments of a message and opens them when they are tapped.
@@ -155,28 +149,4 @@ fun MessageAttachmentsDialog(
 			}
 		}
 	}
-}
-
-private fun openAttachment(context: Context, file: File) {
-	val uri = FileProvider.getUriForFile(context, "${BuildConfig.APPLICATION_ID}.fileprovider", file)
-
-	val intent = Intent(Intent.ACTION_VIEW)
-		.setDataAndType(uri, mimeType(file))
-		.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-
-	try {
-		context.startActivity(intent)
-	} catch (e: ActivityNotFoundException) {
-		Toast.makeText(
-			context,
-			context.getString(R.string.infocenter_messages_attachment_no_app),
-			Toast.LENGTH_LONG
-		).show()
-	}
-}
-
-private fun mimeType(file: File): String {
-	val extension = file.name.substringAfterLast('.', "").lowercase()
-	val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
-	return mimeType ?: "application/octet-stream"
 }

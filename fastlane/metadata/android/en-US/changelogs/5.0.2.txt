@@ -1,0 +1,3 @@
+Added: non-image attachments are now shown below the message content as well, not only behind the attachment icon. Tapping such an attachment downloads it and opens it.
+
+Fixed: messages of the day (the pinned messages at the top of the Info Center) could not be opened and showed their HTML tags as raw text in the list. They now open a detail view with the formatted message and its attachments.
