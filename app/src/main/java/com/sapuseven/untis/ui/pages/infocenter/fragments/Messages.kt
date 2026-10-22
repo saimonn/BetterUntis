@@ -1,6 +1,5 @@
 package com.sapuseven.untis.ui.pages.infocenter.fragments
 
-import android.util.Log
 import android.widget.TextView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -75,10 +74,12 @@ import io.github.fornewid.placeholder.foundation.placeholder
 import io.github.fornewid.placeholder.foundation.shimmer
 import io.github.fornewid.placeholder.material3.color
 import io.github.fornewid.placeholder.material3.shimmerHighlightColor
+import java.io.File
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import kotlinx.coroutines.flow.Flow
 
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -95,6 +96,9 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 	// replaced by the message detail (carrying the attachments) as soon as it
 	// has been loaded: the list entries only know `hasAttachments`.
 	var showMessageAttachments by remember { mutableStateOf(false) }
+
+	// The image attachment currently shown in the full screen viewer.
+	var openImage by remember { mutableStateOf<Pair<File, String>?>(null) }
 
 	Crossfade(targetState = uiState, label = "InfoCenter Messages Content") { state ->
 		SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
@@ -206,6 +210,8 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 				onShowAttachments = {
 					showMessageAttachments = true
 				},
+				downloadAttachment = viewModel::downloadAttachment,
+				onImageClick = { file, name -> openImage = file to name },
 			)
 
 			BackHandler(selectedMessage != null) {
@@ -229,6 +235,14 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 				downloadAttachment = viewModel::downloadAttachment
 			)
 		}
+	}
+
+	openImage?.let { (file, name) ->
+		MessageImageDialog(
+			file = file,
+			name = name,
+			onDismiss = { openImage = null }
+		)
 	}
 
 	// Stop waiting for the detail when it is loaded but has no downloadable
@@ -264,19 +278,9 @@ private fun Message.attachmentSelection(): MessageAttachmentSelection? {
 		(attachments.orEmpty() + listOfNotNull(blobAttachment) + storageAttachments.orEmpty())
 			.filter { it.downloadable != false }
 
-	// TODO(debug): temporary diagnostic logging, remove before merging.
-	Log.d(
-		"MessageAttachments",
-		"message $id: hasAttachments=$hasAttachments " +
-			"attachments=${this.attachments?.size} blob=${blobAttachment != null} " +
-			"storage=${storageAttachments?.size} -> selectable=${attachments.size} " +
-			"(${attachments.joinToString { "${it.name}:${it.downloadable}:${it.attachmentType}" }})"
-	)
-
 	return if (attachments.isEmpty()) null
 	else MessageAttachmentSelection(messageId = id, attachments = attachments)
 }
-
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -289,6 +293,8 @@ private fun SharedTransitionScope.MessageDetails(
 	onReply: () -> Unit,
 	onDelete: () -> Unit,
 	onShowAttachments: () -> Unit,
+	downloadAttachment: (Long, MessageAttachment) -> Flow<Result<File>>,
+	onImageClick: (File, String) -> Unit,
 ) {
 	AnimatedContent(
 		modifier = modifier.fillMaxSize(),
@@ -314,7 +320,9 @@ private fun SharedTransitionScope.MessageDetails(
 								)
 								.clip(CardDefaults.shape)
 						) {
-							Column {
+							Column(
+								modifier = Modifier.verticalScroll(rememberScrollState())
+							) {
 								MessagePreview(
 									modifier = Modifier
 										.sharedElement(
@@ -334,7 +342,6 @@ private fun SharedTransitionScope.MessageDetails(
 									modifier = Modifier
 										.fillMaxWidth()
 										.padding(horizontal = 16.dp)
-										.verticalScroll(rememberScrollState())
 										.placeholder(
 											visible = messageContent == null,
 											color = PlaceholderDefaults.color(),
@@ -345,6 +352,15 @@ private fun SharedTransitionScope.MessageDetails(
 										),
 									text = messageContent ?: ""
 								)
+
+								targetMessage.attachmentSelection()?.let { selection ->
+									MessageAttachments(
+										messageId = selection.messageId,
+										attachments = selection.attachments,
+										downloadAttachment = downloadAttachment,
+										onImageClick = onImageClick
+									)
+								}
 
 								if (canReply || canDelete) {
 									Row(

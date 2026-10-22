@@ -42,6 +42,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sapuseven.untis.BuildConfig
 import com.sapuseven.untis.R
+import com.sapuseven.untis.helpers.attachmentName
 import com.sapuseven.untis.model.rest.MessageAttachment
 import kotlinx.coroutines.flow.Flow
 import java.io.File
@@ -72,7 +73,7 @@ fun MessageAttachmentsDialog(
 				context,
 				context.getString(
 					R.string.infocenter_messages_attachment_download_failed,
-					attachment.name ?: attachment.fileName.orEmpty()
+					attachment.attachmentName()
 				),
 				Toast.LENGTH_LONG
 			).show()
@@ -127,7 +128,7 @@ fun MessageAttachmentsDialog(
 						ListItem(
 							colors = ListItemDefaults.colors(containerColor = Color.Transparent), // No idea why, but ListItem has the wrong background color otherwise
 							headlineContent = {
-								Text(attachment.name ?: attachment.fileName.orEmpty())
+								Text(attachment.attachmentName())
 							},
 							leadingContent = {
 								Icon(
