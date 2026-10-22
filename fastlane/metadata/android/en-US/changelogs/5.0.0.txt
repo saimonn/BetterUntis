@@ -1,0 +1,7 @@
+Message attachments: images are shown inline below the message and can be opened full screen, other files can be downloaded and opened with any app. Attachments are cached, so opening a message again does not download them twice, and every download shows its progress or the reason it failed.
+
+New bottom navigation bar on the home screen: timetable, messages, free rooms and settings are one tap away.
+
+Fixed: clicking a message sometimes did nothing until the app was restarted, inline images could stay stuck on a loading placeholder after switching between the Info Center tabs, and the back button of an open message went to the timetable instead of the message list.
+
+This release no longer uses Google services and installs under a new package name (com.github.saimonn.betteruntis), so it can be installed alongside the official app. Uninstall older builds of this fork first: accounts and settings of the old installation are not carried over.
