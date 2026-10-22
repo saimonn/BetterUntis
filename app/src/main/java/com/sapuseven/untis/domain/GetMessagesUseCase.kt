@@ -12,7 +12,14 @@ import javax.inject.Inject
 interface GetMessagesUseCase {
 	operator fun invoke(): Flow<Result<List<Message>>>
 
-	operator fun invoke(id: Long): Flow<Result<Message>>
+	/**
+	 * The detail of a single message.
+	 *
+	 * @param fromCache [FromCache.IF_HAVE] (the default) uses a local copy when there is one.
+	 * [FromCache.NEVER] forces a request, which is used to repair a cache entry that cannot be
+	 * read anymore.
+	 */
+	operator fun invoke(id: Long, fromCache: FromCache = FromCache.IF_HAVE): Flow<Result<Message>>
 }
 
 class GetMessagesUseCaseImpl @Inject constructor(
@@ -29,8 +36,8 @@ class GetMessagesUseCaseImpl @Inject constructor(
 		.map(Result.Companion::success)
 		.catch { emit(Result.failure(it)) }
 
-	override operator fun invoke(id: Long): Flow<Result<Message>> = messagesRepository.messageSource()
-		.get(id, FromCache.IF_HAVE, maxAge = ONE_HOUR, additionalKey = userRepository.currentUser!!.id)
+	override operator fun invoke(id: Long, fromCache: FromCache): Flow<Result<Message>> = messagesRepository.messageSource()
+		.get(id, fromCache, maxAge = ONE_HOUR, additionalKey = userRepository.currentUser!!.id)
 		.map(Result.Companion::success)
 		.catch { emit(Result.failure(it)) }
 }

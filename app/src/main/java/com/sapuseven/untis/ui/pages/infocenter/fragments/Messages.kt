@@ -37,6 +37,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,6 +68,7 @@ import com.sapuseven.untis.model.rest.Message
 import com.sapuseven.untis.model.rest.MessageAttachment
 import com.sapuseven.untis.ui.dialogs.AttachmentsDialog
 import com.sapuseven.untis.ui.dialogs.MessageAttachmentsDialog
+import com.sapuseven.untis.ui.pages.infocenter.AttachmentUiState
 import com.sapuseven.untis.ui.pages.infocenter.InfoCenterViewModel
 import io.github.fornewid.placeholder.foundation.PlaceholderDefaults
 import io.github.fornewid.placeholder.foundation.PlaceholderHighlight
@@ -79,7 +81,6 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import kotlinx.coroutines.flow.Flow
 
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -88,6 +89,8 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 	val uiState by viewModel.messagesState.collectAsStateWithLifecycle()
 	val selectedMessage by viewModel.selectedMessage.collectAsStateWithLifecycle()
 	val selectedMessageContent by viewModel.selectedMessageContent.collectAsStateWithLifecycle()
+	val messageDetailError by viewModel.messageDetailError.collectAsStateWithLifecycle()
+	val attachmentStates by viewModel.attachmentStates.collectAsStateWithLifecycle()
 
 	var attachmentsDialog by remember { mutableStateOf<List<Attachment>?>(null) }
 
@@ -102,7 +105,9 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 
 	// Hoisted so that the composables below receive a stable reference instead of a new method
 	// reference on every recomposition.
-	val downloadAttachment = remember(viewModel) { viewModel::downloadAttachment }
+	val attachmentKey = remember(viewModel) { viewModel::attachmentKey }
+	val loadAttachment = remember(viewModel) { viewModel::loadAttachment }
+	val retryAttachment = remember(viewModel) { viewModel::retryAttachment }
 
 	Crossfade(targetState = uiState, label = "InfoCenter Messages Content") { state ->
 		SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
@@ -207,14 +212,19 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 			MessageDetails(
 				message = selectedMessage,
 				messageContent = selectedMessageContent,
+				messageError = messageDetailError,
 				canReply = false, // TODO not yet implemented - selectedMessage?.isReplyAllowed == true,
 				canDelete = false, // TODO not yet implemented - selectedMessage?.allowMessageDeletion == true,
 				onReply = { viewModel.onMessageReply() },
 				onDelete = { viewModel.onMessageDelete() },
+				onRetry = { viewModel.retrySelectedMessage() },
 				onShowAttachments = {
 					showMessageAttachments = true
 				},
-				downloadAttachment = downloadAttachment,
+				attachmentStates = attachmentStates,
+				attachmentKey = attachmentKey,
+				loadAttachment = loadAttachment,
+				retryAttachment = retryAttachment,
 				onImageClick = { file, name -> openImage = file to name },
 			)
 
@@ -236,7 +246,10 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 				messageId = selection.messageId,
 				attachments = selection.attachments,
 				onDismiss = { showMessageAttachments = false },
-				downloadAttachment = downloadAttachment
+				states = attachmentStates,
+				keyOf = { attachmentKey(selection.messageId, it) },
+				onLoad = { loadAttachment(selection.messageId, it) },
+				onRetry = { retryAttachment(selection.messageId, it) },
 			)
 		}
 	}
@@ -291,13 +304,18 @@ private fun Message.attachmentSelection(): MessageAttachmentSelection? {
 private fun SharedTransitionScope.MessageDetails(
 	message: Message?,
 	messageContent: String?,
+	messageError: String? = null,
 	modifier: Modifier = Modifier,
 	canReply: Boolean = false,
 	canDelete: Boolean = false,
 	onReply: () -> Unit,
 	onDelete: () -> Unit,
+	onRetry: () -> Unit = {},
 	onShowAttachments: () -> Unit,
-	downloadAttachment: (Long, MessageAttachment) -> Flow<Result<File>>,
+	attachmentStates: Map<String, AttachmentUiState>,
+	attachmentKey: (Long, MessageAttachment) -> String,
+	loadAttachment: (Long, MessageAttachment) -> Unit,
+	retryAttachment: (Long, MessageAttachment) -> Unit,
 	onImageClick: (File, String) -> Unit,
 ) {
 	AnimatedContent(
@@ -342,26 +360,36 @@ private fun SharedTransitionScope.MessageDetails(
 									onShowAttachments = onShowAttachments
 								)
 
-								Text(
-									modifier = Modifier
-										.fillMaxWidth()
-										.padding(horizontal = 16.dp)
-										.placeholder(
-											visible = messageContent == null,
-											color = PlaceholderDefaults.color(),
-											shape = RoundedCornerShape(4.dp),
-											highlight = PlaceholderHighlight.shimmer(
-												PlaceholderDefaults.shimmerHighlightColor()
-											)
-										),
-									text = messageContent ?: ""
-								)
+								if (messageError != null) {
+									MessageDetailError(
+										reason = messageError,
+										onRetry = onRetry
+									)
+								} else {
+									Text(
+										modifier = Modifier
+											.fillMaxWidth()
+											.padding(horizontal = 16.dp)
+											.placeholder(
+												visible = messageContent == null,
+												color = PlaceholderDefaults.color(),
+												shape = RoundedCornerShape(4.dp),
+												highlight = PlaceholderHighlight.shimmer(
+													PlaceholderDefaults.shimmerHighlightColor()
+												)
+											),
+										text = messageContent ?: ""
+									)
+								}
 
 								targetMessage.attachmentSelection()?.let { selection ->
 									MessageAttachments(
 										messageId = selection.messageId,
 										attachments = selection.attachments,
-										downloadAttachment = downloadAttachment,
+										states = attachmentStates,
+										keyOf = { attachmentKey(selection.messageId, it) },
+										onLoad = { loadAttachment(selection.messageId, it) },
+										onRetry = { retryAttachment(selection.messageId, it) },
 										onImageClick = onImageClick
 									)
 								}
@@ -412,6 +440,38 @@ private fun SharedTransitionScope.MessageDetails(
 					}
 				}
 			}
+		}
+	}
+}
+
+/**
+ * Shown instead of the message content when the detail could not be loaded.
+ */
+@Composable
+private fun MessageDetailError(
+	reason: String,
+	onRetry: () -> Unit,
+) {
+	Column(
+		modifier = Modifier
+			.fillMaxWidth()
+			.padding(horizontal = 16.dp),
+		verticalArrangement = Arrangement.spacedBy(4.dp)
+	) {
+		Text(
+			text = stringResource(id = R.string.infocenter_messages_detail_failed),
+			style = MaterialTheme.typography.bodyMedium,
+			color = MaterialTheme.colorScheme.error
+		)
+		if (reason.isNotBlank()) {
+			Text(
+				text = reason,
+				style = MaterialTheme.typography.bodySmall,
+				color = MaterialTheme.colorScheme.onSurfaceVariant
+			)
+		}
+		TextButton(onClick = onRetry) {
+			Text(text = stringResource(id = R.string.infocenter_messages_retry))
 		}
 	}
 }

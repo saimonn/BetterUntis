@@ -39,19 +39,19 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sapuseven.untis.BuildConfig
 import com.sapuseven.untis.R
 import com.sapuseven.untis.helpers.attachmentName
 import com.sapuseven.untis.model.rest.MessageAttachment
-import kotlinx.coroutines.flow.Flow
+import com.sapuseven.untis.ui.pages.infocenter.AttachmentUiState
 import java.io.File
 
 /**
  * Shows the attachments of a message and opens them when they are tapped.
  *
  * Attachments are downloaded on demand, the file is then handed over to another app using a
- * [FileProvider] content URI.
+ * [FileProvider] content URI. The download itself is done by the view model, so its state
+ * survives the dialog being recreated and a download that is already running is not restarted.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,47 +59,37 @@ fun MessageAttachmentsDialog(
 	messageId: Long,
 	attachments: List<MessageAttachment>,
 	onDismiss: () -> Unit,
-	downloadAttachment: (Long, MessageAttachment) -> Flow<Result<File>>,
+	states: Map<String, AttachmentUiState>,
+	keyOf: (MessageAttachment) -> String,
+	onLoad: (MessageAttachment) -> Unit,
+	onRetry: (MessageAttachment) -> Unit,
 ) {
-	var downloadStartedFor by remember { mutableStateOf<MessageAttachment?>(null) }
-	var errorFor by remember { mutableStateOf<MessageAttachment?>(null) }
+	var selected by remember { mutableStateOf<MessageAttachment?>(null) }
 
 	val context = LocalContext.current
+	val selectedState = selected?.let { states[keyOf(it)] }
 
-	if (errorFor != null) {
-		LaunchedEffect(errorFor) {
-			val attachment = errorFor ?: return@LaunchedEffect
-			Toast.makeText(
-				context,
-				context.getString(
-					R.string.infocenter_messages_attachment_download_failed,
-					attachment.attachmentName()
-				),
-				Toast.LENGTH_LONG
-			).show()
-			errorFor = null
-		}
-	}
-
-	val path = downloadStartedFor?.let { downloadAttachment(messageId, it) }
-
-	if (path != null) {
-		val result by path.collectAsStateWithLifecycle(initialValue = null)
-		val downloadResult = result
-
-		LaunchedEffect(downloadResult) {
-			when {
-				downloadResult == null -> Unit
-				downloadResult.isSuccess -> {
-					openAttachment(context, downloadResult.getOrThrow())
-					downloadStartedFor = null
-				}
-
-				else -> {
-					errorFor = downloadStartedFor
-					downloadStartedFor = null
-				}
+	LaunchedEffect(selected, selectedState) {
+		val attachment = selected ?: return@LaunchedEffect
+		when (selectedState) {
+			is AttachmentUiState.Ready -> {
+				openAttachment(context, selectedState.file)
+				selected = null
 			}
+
+			is AttachmentUiState.Failed -> {
+				Toast.makeText(
+					context,
+					context.getString(
+						R.string.infocenter_messages_attachment_download_failed,
+						attachment.attachmentName()
+					),
+					Toast.LENGTH_LONG
+				).show()
+				selected = null
+			}
+
+			else -> Unit
 		}
 	}
 
@@ -137,12 +127,16 @@ fun MessageAttachmentsDialog(
 								)
 							},
 							trailingContent = {
-								if (attachment == downloadStartedFor)
+								if (attachment == selected)
 									CircularProgressIndicator(modifier = Modifier.size(24.dp))
 							},
 							modifier = Modifier
-								.clickable(enabled = downloadStartedFor == null) {
-									downloadStartedFor = attachment
+								.clickable(enabled = selected == null) {
+									if (states[keyOf(attachment)] is AttachmentUiState.Failed)
+										onRetry(attachment)
+									else
+										onLoad(attachment)
+									selected = attachment
 								}
 								.padding(horizontal = 8.dp)
 						)

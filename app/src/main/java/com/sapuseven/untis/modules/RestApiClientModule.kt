@@ -58,6 +58,7 @@ class DefaultMessagesApiFactory @Inject constructor(
 			it.install(HttpTimeout) {
 				requestTimeoutMillis = REQUEST_TIMEOUT_MS
 				connectTimeoutMillis = CONNECT_TIMEOUT_MS
+				socketTimeoutMillis = SOCKET_TIMEOUT_MS
 			}
 			it.install(HttpRequestRetry) {
 				retryOnServerErrors(maxRetries = 2)
@@ -125,6 +126,7 @@ class DefaultMessagesApiFactory @Inject constructor(
 		private const val TOKEN_LIFETIME_MS = 60_000L
 		private const val REQUEST_TIMEOUT_MS = 20_000L
 		private const val CONNECT_TIMEOUT_MS = 10_000L
+		private const val SOCKET_TIMEOUT_MS = 20_000L
 	}
 }
 

@@ -13,11 +13,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,7 +24,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
@@ -34,19 +31,26 @@ import com.sapuseven.untis.R
 import com.sapuseven.untis.helpers.attachmentName
 import com.sapuseven.untis.helpers.isInlineImage
 import com.sapuseven.untis.model.rest.MessageAttachment
-import kotlinx.coroutines.flow.Flow
+import com.sapuseven.untis.ui.pages.infocenter.AttachmentUiState
 import java.io.File
 
 /**
  * Shows all image attachments of a message inline, below its content.
  *
  * Tapping an image opens [MessageImageDialog] with the full size picture.
+ *
+ * The download state is owned by the view model: an image that was already shown (cached on disk)
+ * is displayed immediately when the message is opened again, and a download can never be stuck in
+ * a loading state.
  */
 @Composable
 fun MessageAttachments(
 	messageId: Long,
 	attachments: List<MessageAttachment>,
-	downloadAttachment: (Long, MessageAttachment) -> Flow<Result<File>>,
+	states: Map<String, AttachmentUiState>,
+	keyOf: (MessageAttachment) -> String,
+	onLoad: (MessageAttachment) -> Unit,
+	onRetry: (MessageAttachment) -> Unit,
 	onImageClick: (File, String) -> Unit,
 	modifier: Modifier = Modifier,
 ) {
@@ -62,9 +66,10 @@ fun MessageAttachments(
 		images.forEach { attachment ->
 			key(attachment.id, attachment.attachmentName()) {
 				MessageAttachmentImage(
-					messageId = messageId,
 					attachment = attachment,
-					downloadAttachment = downloadAttachment,
+					state = states[keyOf(attachment)],
+					onLoad = onLoad,
+					onRetry = onRetry,
 					onImageClick = onImageClick
 				)
 			}
@@ -75,46 +80,38 @@ fun MessageAttachments(
 /**
  * A single inline image attachment.
  *
- * The image is downloaded on demand and the state of that download is always visible: a
- * placeholder while it is running and an error block with the reason and a retry action when it
- * failed. Nothing is hidden silently, otherwise a broken download looks like a missing image.
+ * The state of the download is always visible: a placeholder while it is running and an error
+ * block with the reason and a retry action when it failed. Nothing is hidden silently, otherwise
+ * a broken download looks like a missing image.
  */
 @Composable
 private fun MessageAttachmentImage(
-	messageId: Long,
 	attachment: MessageAttachment,
-	downloadAttachment: (Long, MessageAttachment) -> Flow<Result<File>>,
+	state: AttachmentUiState?,
+	onLoad: (MessageAttachment) -> Unit,
+	onRetry: (MessageAttachment) -> Unit,
 	onImageClick: (File, String) -> Unit,
 ) {
-	var attempt by remember { mutableIntStateOf(0) }
-
-	// The download is memoised by the view model, so the flow only has to be requested again when
-	// the user retries. Never key this on the lambda parameter: a method reference is a new
-	// object on every recomposition and would restart the download over and over again.
-	val download = remember(messageId, attachment, attempt) {
-		downloadAttachment(messageId, attachment)
+	// Runs again when the image is shown again (e.g. after switching tabs). Loading is idempotent,
+	// so a download that is already running or finished is never restarted.
+	LaunchedEffect(attachment) {
+		onLoad(attachment)
 	}
-	val result by download.collectAsStateWithLifecycle(initialValue = null)
 
 	val name = attachment.attachmentName()
-	val file = result?.getOrNull()
 
-	when {
-		file != null -> MessageAttachmentImageContent(
-			file = file,
+	when (state) {
+		is AttachmentUiState.Ready -> MessageAttachmentImageContent(
+			file = state.file,
 			name = name,
-			onClick = { onImageClick(file, name) },
-			onRetry = {
-				// The cached file cannot be decoded, download it again.
-				file.delete()
-				attempt++
-			}
+			onClick = { onImageClick(state.file, name) },
+			onRetry = { onRetry(attachment) }
 		)
 
-		result?.isFailure == true -> MessageAttachmentImageError(
+		is AttachmentUiState.Failed -> MessageAttachmentImageError(
 			name = name,
-			reason = result?.exceptionOrNull()?.message,
-			onRetry = { attempt++ }
+			reason = state.reason,
+			onRetry = { onRetry(attachment) }
 		)
 
 		else -> MessageAttachmentImagePlaceholder()

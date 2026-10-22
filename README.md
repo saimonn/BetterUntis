@@ -1,92 +1,123 @@
-![App Icon](https://raw.githubusercontent.com/SapuSeven/BetterUntis/master/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png)
-# BetterUntis
+![App Icon](app/src/main/res/mipmap-xxxhdpi/ic_launcher.png)
+# BetterUntis (fork)
+
 An alternative mobile client for the Untis timetable system.
 
-<a href="https://circleci.com/gh/SapuSeven/BetterUntis"><img src="https://img.shields.io/circleci/build/gh/SapuSeven/BetterUntis?style=for-the-badge" alt="CircleCI"></a>
-<a href="https://hosted.weblate.org/engage/betteruntis/?utm_source=widget"><img src="https://img.shields.io/badge/dynamic/xml?color=green&label=localized&query=%2F%2F%2A%5Blocal-name%28%29%3D%27text%27%5D%5Blast%28%29%5D%2Ftext%28%29&url=https%3A%2F%2Fhosted.weblate.org%2Fwidgets%2Fbetteruntis%2F-%2Fsvg-badge.svg&style=for-the-badge" alt="Translation status" width=147.5 height=28/></a>
-<a href="https://matrix.to/#/#github-betteruntis:sapuseven.com"><img src="https://img.shields.io/badge/chat-on matrix-blueviolet?style=for-the-badge" alt="Matrix"></a>
-<a href="https://ko-fi.com/sapuseven"><img src="https://img.shields.io/badge/Support-On Ko--fi-%2313C3FF?style=for-the-badge" alt="Support on Ko-fi"/></a>
+This is a fork of [SapuSeven/BetterUntis](https://github.com/SapuSeven/BetterUntis) that adds
+message attachments and drops every dependency on Google services. It is distributed as an APK
+through the [releases](../../releases) of this repository.
 
-<a href="https://f-droid.org/packages/com.sapuseven.untis"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80"></a>
-<a href="https://play.google.com/store/apps/details?id=com.sapuseven.untis&utm_source=github&utm_campaign=badge"><img alt="Get it on Google Play" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="80"/></a>
+## Differences from upstream
 
-You can also download the latest automated build [from my website](https://sapuseven.com/app/BetterUntis).
+### Message attachments
 
-## Screenshots
+The Info Center used to show *that* a message has attachments, but not the attachments themselves.
 
-| <img src="https://raw.githubusercontent.com/SapuSeven/BetterUntis/master/fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" alt="Screenshot 1" /> | <img src="https://raw.githubusercontent.com/SapuSeven/BetterUntis/master/fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" alt="Screenshot 2" /> | <img src="https://raw.githubusercontent.com/SapuSeven/BetterUntis/master/fastlane/metadata/android/en-US/images/phoneScreenshots/3.png" alt="Screenshot 3" /> | <img src="https://raw.githubusercontent.com/SapuSeven/BetterUntis/master/fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" alt="Screenshot 4" /> |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+- All attachments of a message are listed in the message detail and in the attachment dialog,
+  and can be downloaded and opened with the app of your choice (PDF, images, office documents, …).
+- Image attachments are shown inline below the message content. Tapping one opens a full screen
+  viewer with pinch and double tap zoom.
+- Every download state is visible: a placeholder while it runs, and an error block with the
+  reason and a retry action when it failed.
+- Attachments are cached on disk (bounded to 64 MB, oldest files are evicted first) and the signed
+  download URL is reused for a few minutes, so reopening a message or switching between the Info
+  Center tabs does not download anything twice. Interrupted downloads are written to a temporary
+  file and renamed on completion, so a truncated file can never be mistaken for a cached one.
+
+### Direct access to messages
+
+The home screen has a bottom navigation bar with the four main sections: timetable, messages,
+free rooms and settings. Messages are one tap away instead of *menu → Info Center → Messages*.
+Inside the Info Center, the back arrow closes an open message first and only leaves the screen on
+a second back press.
+
+### No Google services
+
+The `gms` product flavor and the `google-services` Gradle plugin have been removed, only the FOSS
+flavor is built:
+
+- no Firebase, no Google Play Services, no Google hosted push notifications,
+- no `google-services.json`, no GMS dependency at all,
+- smaller APK, works on de-Googled devices.
+
+Crash reporting through Sentry is not wired up in this fork either, nothing is sent anywhere.
+
+### Fork identity
+
+- The application id is derived from the repository owner by the release workflow instead of
+  hardcoding the upstream id:
+  `com.github.<owner>.betteruntis` (this fork: `com.github.saimonn.betteruntis`, debug builds
+  add a `.debug` suffix). The source packages stay `com.sapuseven.untis`, they are not part of
+  the app identity.
+- Releases are signed with the key of this fork, so they install next to the official app
+  (F-Droid, Play Store) instead of replacing it. The two installations do not share any data.
+- The about screen (repository, releases, update check, contributors) and the application id are
+  injected from the GitHub repository at build time, see `.github/workflows/deploy.yml`.
+
+## Install
+
+### Obtainium
+
+1. Install [Obtainium](https://github.com/ImranR98/Obtainium).
+2. Add `https://github.com/saimonn/BetterUntis` as an app source.
+3. Let Obtainium install the latest release and keep it up to date.
+
+### Manually
+
+Download the `BetterUntis-<version>.apk` file from the [latest release](../../releases/latest).
+
+Installing over a build that uses the upstream package name (`com.sapuseven.untis`) requires
+uninstalling it first: Android refuses updates that are signed with a different key, and this fork
+now uses its own package name anyway. Uninstalling removes the stored accounts, settings and
+bookmarks of the old installation.
 
 ## Top features
+
 - Modern and intuitive user interface
 - Simple and straight-forward login process
 - Fast timetable loading with smart caching
 - Multiple separate accounts/profiles
 - RoomFinder to quickly find free rooms
-- Info Center for viewing events, contact hours and own absences
-- Class management features for teachers (Absence checking, lesson topic editing, ...)
+- Info Center for messages (with attachments), events, contact hours and own absences
+- Class management features for teachers (absence checking, lesson topic editing, …)
 - Break notifications and auto-mute during lessons
 
-## Available languages
+## Build
 
-[![Translation status](https://hosted.weblate.org/widget/betteruntis/translations/multi-auto.svg)](https://hosted.weblate.org/engage/betteruntis/)
+Requirements: JDK 17 and an Android SDK with platform 35 (`compileSdk 35`, `minSdk 21`).
 
-## Development history
+```bash
+./gradlew assembleRelease
+```
 
-### v3.x
-The [original version](https://github.com/SapuSeven/BetterUntis-Legacy) of BetterUntis had many design and performance flaws.
-Since development became increasingly more difficult, the project was scrapped and I started over from scratch.
+The build reads a few optional values from the environment (or the Gradle property of the same
+name), which is how the release workflow configures the app:
 
-Although some parts of the original code were reused, the codebase was entirely switched to Kotlin.
-Kotlin has many features and libraries that immensely help to communicate with the Untis API and process the timetable data.
+| Variable            | Default                  | Meaning                                                     |
+|---------------------|--------------------------|-------------------------------------------------------------|
+| `VERSION_NAME`      | `5.0.0-beta04`           | `versionName` shown to the user, set from the release tag    |
+| `APPLICATION_ID`    | `com.sapuseven.untis`    | package name the APK is installed under                      |
+| `GITHUB_REPOSITORY` | `SapuSeven/BetterUntis`  | repository used by the about screen and the update check     |
 
-Another major change is the use of a custom WeekView (based on [Till Hellmund](https://github.com/thellmund)'s fork of [Android-Week-View](https://github.com/alamkanak/Android-Week-View)) for the timetable display.
-This also improved performance by a lot.
+Release signing uses `app/BetterUntis.jks` together with `KEYSTORE_PASSWORD` and
+`KEY_RELEASE_PASSWORD` (or the corresponding entries of `app/signing.properties`). Without a
+keystore the release build is unsigned.
 
-### v4.x
-This major version updated the WeekView component again to be based entirely on Jetpack Compose.
-Since the rest of the app was already built on Compose, this made it easier to develop and improve the WeekView component.
+## Translations
 
-### v5.x
-This version introduces a complete architecture overhaul to follow the latest Android Jetpack guidelines.
-Additionally, several components (like Untis API Client, Compose Preferences, ...) were separated to their own module
-to potentially reuse them in other projects.
+Translations are maintained upstream on [Weblate](https://hosted.weblate.org/engage/betteruntis/).
+This fork only adds a few English strings for its own features and does not ship its own
+translation project.
 
-## Project Git Structure
-I established a simple system to manage this Git repository.
-Basically, there are two main branches: **master** and **develop**. They both are permanent and cannot be deleted.
+## Upstream
 
-### Branch: master
-This branch always and only contains the latest release version. This includes alpha/beta releases.
+- Repository: [SapuSeven/BetterUntis](https://github.com/SapuSeven/BetterUntis)
+- F-Droid: [com.sapuseven.untis](https://f-droid.org/packages/com.sapuseven.untis)
+- Google Play: [BetterUntis](https://play.google.com/store/apps/details?id=com.sapuseven.untis)
+- Chat: [#github-betteruntis:sapuseven.com](https://matrix.to/#/#github-betteruntis:sapuseven.com)
 
-### Branch: develop
-This branch contains the current development version. Small changes and fixes can be committed directly to this branch.
+If you want to support the original project, use the upstream links, not this fork.
 
-When it reaches a state ready to release, it can be merged into the **master**-branch and a new release can be published.
+## License
 
-### Other branches
-Especially bigger features which require multiple commits should branch off **develop** and merge back into it. These should be named in a way to describe the feature as clearly as possible.
-
-These branches have a limited lifetime. After the last merge back into **develop**, they should be deleted if no longer needed.
-
-## Contributing
-
-Your help is greatly appreciated, but first please read the following sections to prevent common mistakes:
-
-### Translating into another language
-
-If you haven't already, sign up for an account at [weblate.org](https://hosted.weblate.org/accounts/register/) .
-You can then navigate to the [BetterUntis translation project](https://hosted.weblate.org/projects/betteruntis/translations/). 
-
-Select your desired language (or click the “Start new translation“ button at the bottom) and look at "Strings status".
-All categories marked in red are areas where translations are missing or potentially incorrect. Click on them to start translating.
-
-Your translation will then be automatically included in the next release of BetterUntis.
-
-### Implementing new features / Fixing bugs
-
-Anything that requires you to perform code changes should be done on the **develop** branch.
-Pull requests should always be based on this branch, except for larger, experimental or incomplete features.
-These can be on their own, new feature branch.
-
-_Please **do not** submit pull requests that merge into the master branch, except for changes that **only** affect the repository on GitHub (e.g. README.md changes)._
+GNU General Public License v3, see [LICENSE](LICENSE).
