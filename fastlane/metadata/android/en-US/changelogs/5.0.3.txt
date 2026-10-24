@@ -1,0 +1,1 @@
+Added: swipe left/right to browse all images in an attachment gallery. Share images and other attachments (PDF, etc.) directly from the viewer or the attachment list.
