@@ -15,7 +15,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.sapuseven.compose.protostore.ui.preferences.convertRangeToPair
 import com.sapuseven.untis.R
-import com.sapuseven.untis.api.exception.UntisApiException
 import com.sapuseven.untis.api.model.untis.enumeration.ElementType
 import com.sapuseven.untis.api.model.untis.timetable.Period
 import com.sapuseven.untis.api.model.untis.timetable.PeriodElement
@@ -79,7 +78,6 @@ class TimetableViewModel @Inject constructor(
 
 	var profileManagementDialog by mutableStateOf(false)
 	var timetableItemDetailsDialog by mutableStateOf<Pair<List<Event<PeriodItem>>, Int>?>(null)
-	var feedbackDialog by mutableStateOf(false)
 	var loading by mutableStateOf(true)
 
 	val currentUser: User = userRepository.currentUser!!
@@ -103,6 +101,9 @@ class TimetableViewModel @Inject constructor(
 
 	private val _lastRefresh = MutableStateFlow<Instant?>(null)
 	val lastRefresh: StateFlow<Instant?> = _lastRefresh
+
+	private val _loadError = MutableStateFlow<Throwable?>(null)
+	val loadError: StateFlow<Throwable?> = _loadError
 
 	private val _weekViewColorScheme = MutableStateFlow(WeekViewColorScheme.default())
 	val weekViewColorScheme: StateFlow<WeekViewColorScheme> = _weekViewColorScheme
@@ -133,8 +134,8 @@ class TimetableViewModel @Inject constructor(
 	private var currentPage = 0
 
 	private val loadingExceptionHandler: suspend FlowCollector<*>.(Throwable) -> Unit = { throwable ->
-		val message = if (throwable is UntisApiException) "API error" else "other error"
-		Log.e("TimetableViewModel", "Failed to load timetable due to $message", throwable)
+		Log.e("TimetableViewModel", "Failed to load timetable", throwable)
+		_loadError.emit(throwable)
 	}
 
 	init {
@@ -146,9 +147,7 @@ class TimetableViewModel @Inject constructor(
 					_needsPersonalTimetable.emit(false)
 					//_currentElement.update { prev -> prev ?: it } // Update only if null
 				} ?: run {
-					_personalElement.value = currentUser.userData.elemType?.let {
-						PeriodElement(it, currentUser.userData.elemId)
-					}
+					_personalElement.value = currentUser.userData.personalElement
 					_needsPersonalTimetable.emit(requestedElement == null && _personalElement.value == null)
 				}
 				_hourList.value = buildHourList(
@@ -310,10 +309,6 @@ class TimetableViewModel @Inject constructor(
 		navigator.navigate(AppRoutes.Settings.Timetable(highlightTitle = R.string.preference_timetable_personal_timetable))
 	}
 
-	fun showFeedback() {
-		feedbackDialog = true
-	}
-
 	fun getTitle(context: Context) = requestedElement?.let {
 		if (it == _personalElement.value) null // Use Profile name for personal timetable
 		else masterDataRepository.getLongName(it)
@@ -336,7 +331,9 @@ class TimetableViewModel @Inject constructor(
 		val events = timetableMapper.mapTimetablePeriodsToWeekViewEvents(result.value, requestedElement?.type ?: ElementType.STUDENT)
 		val refreshTimestamp = result.originTimeStamp?.let { Instant.ofEpochMilli(it) } ?: Instant.now()
 		emitEvents(mapOf(startDate to events))
-		if (updateLastRefresh)
+		if (updateLastRefresh) {
 			_lastRefresh.emit(refreshTimestamp)
+			_loadError.emit(null)
+		}
 	}
 }

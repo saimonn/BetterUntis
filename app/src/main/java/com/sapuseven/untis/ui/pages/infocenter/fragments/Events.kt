@@ -55,7 +55,14 @@ fun InfoCenterEvents(uiState: EventsUiState) {
 								items(it) { item -> ExamItem(item) }
 							}
 						},
-						onFailure = { item { InfoCenterError(it) } }
+						onFailure = {
+							item {
+								InfoCenterError(
+									it,
+									unavailableMessage = R.string.infocenter_exams_unavailable
+								)
+							}
+						}
 					)
 				}
 			}
@@ -84,7 +91,14 @@ fun InfoCenterEvents(uiState: EventsUiState) {
 								items(it) { item -> HomeworkItem(item) }
 							}
 						},
-						onFailure = { item { InfoCenterError(it) } }
+						onFailure = {
+							item {
+								InfoCenterError(
+									it,
+									unavailableMessage = R.string.infocenter_homework_unavailable
+								)
+							}
+						}
 					)
 				}
 			}

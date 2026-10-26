@@ -147,6 +147,12 @@
     <string name="elementpicker_hint_search">Recherche…</string>
     <string name="infocenter_events_exam_name_long">%1$s – %2$s</string>
     <string name="infocenter_absences_empty">Aucune absence</string>
+    <string name="infocenter_exams">Contrôles</string>
+    <string name="infocenter_exams_empty">Aucun contrôle</string>
+    <string name="infocenter_exams_unavailable">Les contrôles ne sont pas disponibles pour ce compte</string>
+    <string name="infocenter_homework">Devoirs</string>
+    <string name="infocenter_homework_empty">Aucun devoir</string>
+    <string name="infocenter_homework_unavailable">Les devoirs ne sont pas disponibles pour ce compte</string>
     <string name="infocenter_messages_empty">Aucun message</string>
     <string name="infocenter_officehours_empty">Aucune heure de permanence</string>
     <string name="infocenter_timeformat_sameday">%2$s – %4$s, %1$s</string>
@@ -205,6 +211,8 @@
     <string name="main_go_to_settings">Aller aux réglages</string>
     <string name="main_anonymous_login_info_text">Vous devez définir un emploi du temps personnel si vous êtes connecté·e en tant qu’utilisateur anonyme.</string>
     <string name="main_last_refreshed_never">jamais</string>
+    <string name="main_report_issue">Signaler un problème sur GitHub</string>
+    <string name="timetable_unavailable">L’emploi du temps n’est pas disponible pour ce compte</string>
     <string name="main_last_refreshed">Dernière actualisation : %1$s</string>
     <string name="main_dialog_itemdetails_image_homeworks">Devoirs</string>
     <string name="main_dialog_itemdetails_image_infos">Infos</string>

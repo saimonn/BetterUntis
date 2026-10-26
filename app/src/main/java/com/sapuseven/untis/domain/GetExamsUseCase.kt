@@ -1,12 +1,12 @@
 package com.sapuseven.untis.domain
 
 import com.sapuseven.untis.api.model.untis.classreg.Exam
-import com.sapuseven.untis.api.model.untis.enumeration.ElementType
 import com.sapuseven.untis.data.database.entities.SchoolYearEntity
 import com.sapuseven.untis.data.repository.InfoCenterRepository
 import crocodile8.universal_cache.FromCache
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import javax.inject.Inject
@@ -26,11 +26,15 @@ class GetExamsUseCase @Inject constructor(
 	}
 
 	operator fun invoke(): Flow<Result<List<Exam>>> = userRepository.currentUser!!.let { user ->
+		val element = user.userData.personalElement
+		if (element == null)
+			return flowOf(Result.failure(ElementNotAvailableException()))
+
 		infoCenterRepository.examsSource()
 			.get(
 				InfoCenterRepository.EventsParams(
-					user.userData.elemId,
-					user.userData.elemType ?: ElementType.STUDENT,
+					element.id,
+					element.type,
 					LocalDate.now(),
 					currentSchoolYear.endDate
 				),

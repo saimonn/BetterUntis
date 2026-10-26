@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -41,14 +42,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sapuseven.untis.R
+import com.sapuseven.untis.data.model.github.GitHubApi.URL_GITHUB_REPOSITORY
 import com.sapuseven.untis.ui.animations.fullscreenDialogAnimationEnter
 import com.sapuseven.untis.ui.animations.fullscreenDialogAnimationExit
 import com.sapuseven.untis.ui.common.AppScaffold
 import com.sapuseven.untis.ui.common.DebugDesclaimerAction
+import com.sapuseven.untis.ui.common.ErrorBubble
 import com.sapuseven.untis.ui.common.NavigationBarInset
 import com.sapuseven.untis.ui.common.ProfileSelectorAction
 import com.sapuseven.untis.ui.common.disabled
-import com.sapuseven.untis.ui.dialogs.FeedbackDialog
 import com.sapuseven.untis.ui.dialogs.ProfileManagementDialog
 import com.sapuseven.untis.ui.functional.bottomInsets
 import com.sapuseven.untis.ui.functional.insetsPaddingValues
@@ -84,6 +86,7 @@ fun Timetable(
 	val events by viewModel.events.collectAsStateWithLifecycle()
 	val holidays by viewModel.holidays.collectAsStateWithLifecycle()
 	val lastRefresh by viewModel.lastRefresh.collectAsStateWithLifecycle()
+	val loadError by viewModel.loadError.collectAsStateWithLifecycle()
 	val weekViewColorScheme by viewModel.weekViewColorScheme.collectAsStateWithLifecycle()
 	val weekViewScale by viewModel.weekViewScale.collectAsStateWithLifecycle()
 	val weekViewZoomEnabled by viewModel.weekViewZoomEnabled.collectAsStateWithLifecycle()
@@ -157,11 +160,6 @@ fun Timetable(
 					val insets = insetsPaddingValues()
 					val navBarHeight = remember { insets.calculateBottomPadding() + 48.dp }
 
-					FeedbackDialog(
-						visible = viewModel.feedbackDialog,
-						onDismiss = { viewModel.feedbackDialog = false }
-					)
-
 					var currentTime by remember { mutableStateOf(LocalDateTime.now(viewModel.clock)) }
 
 					LaunchedEffect(Unit) {
@@ -205,19 +203,20 @@ fun Timetable(
 								.fillMaxSize()
 								.disabled(disabled = needsPersonalTimetable)
 						) { startPadding ->
-							// Feedback button
+							// Report an issue on GitHub
+							val uriHandler = LocalUriHandler.current
 							IconButton(
 								modifier = Modifier
 									.align(Alignment.BottomEnd)
 									.padding(end = 8.dp)
 									.bottomInsets(),
 								onClick = {
-									viewModel.showFeedback()
+									uriHandler.openUri("$URL_GITHUB_REPOSITORY/issues/new")
 								}
 							) {
 								Icon(
 									painter = painterResource(R.drawable.all_feedback),
-									contentDescription = "Give feedback"
+									contentDescription = stringResource(R.string.main_report_issue)
 								)
 							}
 
@@ -244,7 +243,7 @@ fun Timetable(
 										Text(text = stringResource(id = R.string.main_go_to_settings))
 									}
 								}
-							} else {
+							} else if (loadError == null) {
 								// Last refresh text
 								Text(
 									text = stringResource(
@@ -261,6 +260,17 @@ fun Timetable(
 								)
 							}
 						}
+					}
+
+					loadError?.let { error ->
+						ErrorBubble(
+							error = error,
+							unavailableMessage = R.string.timetable_unavailable,
+							modifier = Modifier
+								.align(Alignment.TopCenter)
+								.padding(top = 8.dp)
+								.bottomInsets()
+						)
 					}
 				}
 			}

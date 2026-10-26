@@ -57,6 +57,8 @@
     <string name="main_dialog_itemdetails_image_homeworks">Hausaufgaben</string>
     <string name="main_last_refreshed">Zuletzt aktualisiert: %1$s</string>
     <string name="main_last_refreshed_never">nie</string>
+    <string name="main_report_issue">Problem auf GitHub melden</string>
+    <string name="timetable_unavailable">Der Stundenplan ist für dieses Konto nicht verfügbar</string>
     <string name="main_anonymous_login_info_text">Für anonyme Profile muss ein persönlicher Stundenplan festgelegt werden.</string>
     <string name="main_go_to_settings">Zu den Einstellungen</string>
     <string name="main_drawer_open">Navigationsleiste öffnen</string>
@@ -369,6 +371,7 @@
     <string name="infocenter_absence_reason">Grund: %1$s</string>
     <string name="infocenter_homework">Hausaufgaben</string>
     <string name="infocenter_homework_empty">Keine Hausaufgaben</string>
+    <string name="infocenter_homework_unavailable">Hausaufgaben sind für dieses Konto nicht verfügbar</string>
     <string name="infocenter_absence_excused_status">Entschuldigt (%1$s)</string>
     <string name="all_dialog_absences_save_detailed">Detaillierte Abwesenheitskontrolle absenden</string>
     <string name="all_api_error_generic">Schnittstellen-Fehler: %1$s</string>
@@ -378,6 +381,7 @@
     <string name="preferences_default_color">Standardfarbe</string>
     <string name="infocenter_exams">Prüfungen</string>
     <string name="infocenter_exams_empty">Keine Prüfungen</string>
+    <string name="infocenter_exams_unavailable">Prüfungen sind für dieses Konto nicht verfügbar</string>
     <string name="preference_timetable_colors_reset_desc">Die Farben werden auf das Systemdesign zurückgesetzt.</string>
     <string name="preference_info_contributors_error">Fehler beim Laden der Mitwirkenden von GitHub.</string>
     <string name="preference_category_notifications_break">Pausenbenachrichtigungen</string>
