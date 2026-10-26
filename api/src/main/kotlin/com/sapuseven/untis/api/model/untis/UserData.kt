@@ -25,7 +25,9 @@ data class UserData(
 	 * `APPRENTICE_REPRESENTATIVE`), but the timetable and class register endpoints only accept
 	 * class, teacher, subject, room, student or parent elements; asking them for a guardian
 	 * element fails with `invalid element type: 12`. The data of a guardian account is the data of
-	 * the represented child, so the child is used as a student element instead.
+	 * the represented child. If children are not provided by the server, the child's class from
+	 * [klassenIds] is used as a fallback (the official WebUntis app shows the class timetable for
+	 * parents in that case).
 	 *
 	 * `null` means the account has no element that the timetable and class register endpoints
 	 * accept, i.e. the screen has to tell the user that the data is unavailable instead of showing
@@ -33,13 +35,19 @@ data class UserData(
 	 */
 	val personalElement: PeriodElement?
 		get() = when (elemType) {
-			null -> firstChildAsStudent()
-			ElementType.LEGAL_GUARDIAN, ElementType.APPRENTICE_REPRESENTATIVE -> firstChildAsStudent()
-			// A parent element itself is accepted by some servers, so it is kept as a fallback.
-			ElementType.PARENT -> firstChildAsStudent() ?: PeriodElement(elemType, elemId)
+			null -> firstChildAsStudent() ?: firstChildClass()
+			ElementType.LEGAL_GUARDIAN, ElementType.APPRENTICE_REPRESENTATIVE ->
+				firstChildAsStudent() ?: firstChildClass()
+
+			ElementType.PARENT ->
+				firstChildAsStudent() ?: firstChildClass() ?: PeriodElement(elemType, elemId)
+
 			else -> PeriodElement(elemType, elemId)
 		}
 
 	private fun firstChildAsStudent(): PeriodElement? =
-		children.firstOrNull()?.let { PeriodElement(ElementType.STUDENT, it.id) }
+		children.firstOrNull { it != null }?.let { PeriodElement(ElementType.STUDENT, it.id) }
+
+	private fun firstChildClass(): PeriodElement? =
+		klassenIds.firstOrNull { it != 0L }?.let { PeriodElement(ElementType.CLASS, it) }
 }
