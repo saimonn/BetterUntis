@@ -168,7 +168,7 @@ fun <T> WeekViewEvent(
 				modifier = Modifier
 					.fillMaxWidth()
 					.align(Alignment.TopStart)
-					.padding(top = innerPadding)
+					.padding(top = innerPadding, start = innerPadding, end = innerPadding)
 			)
 
 			Text(
@@ -191,7 +191,7 @@ fun <T> WeekViewEvent(
 				modifier = Modifier
 					.fillMaxWidth()
 					.align(Alignment.BottomStart)
-					.padding(bottom = innerPadding, horizontal = innerPadding)
+					.padding(bottom = innerPadding, start = innerPadding, end = innerPadding)
 			)
 		}
 	}

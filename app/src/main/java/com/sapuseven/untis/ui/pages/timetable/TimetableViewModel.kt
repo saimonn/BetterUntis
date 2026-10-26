@@ -223,7 +223,7 @@ class TimetableViewModel @Inject constructor(
 			loading = true
 			((pageOffset - 1)..(pageOffset + 1)).map { targetPage ->
 				async {
-					val startDate = startDateForPageIndex(targetPage.toLong(), daysPerPage = daysPerPage)
+					val startDate = startDateForPageIndex(targetPage.toLong(), daysPerPage = _daysPerPage.value)
 					loadEvents(
 						startDate,
 						// Note: Right now this is a workaround to show the "last refresh" text when changing pages,
@@ -240,7 +240,7 @@ class TimetableViewModel @Inject constructor(
 	}
 
 	suspend fun onPageReload(pageOffset: Int) {
-		val startDate = startDateForPageIndex(pageOffset.toLong(), daysPerPage = daysPerPage)
+		val startDate = startDateForPageIndex(pageOffset.toLong(), daysPerPage = _daysPerPage.value)
 		loadEvents(startDate, FromCache.NEVER)
 			.catch(loadingExceptionHandler)
 			.collectEvents(startDate)
