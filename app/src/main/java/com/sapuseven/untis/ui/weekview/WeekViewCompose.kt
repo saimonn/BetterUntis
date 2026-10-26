@@ -611,6 +611,9 @@ fun <T> WeekViewCompose(
 	startTime: LocalTime = hourList.firstOrNull()?.startTime ?: LocalTime.MIDNIGHT.plusHours(6),
 	endTime: LocalTime = hourList.lastOrNull()?.endTime ?: LocalTime.MIDNIGHT.plusHours(18),
 	endTimeOffset: Dp = 0.dp,
+	daysPerPage: Int = 5,
+	clock: java.time.Clock = java.time.Clock.systemDefaultZone(),
+	firstDayOfWeek: java.time.DayOfWeek = java.time.DayOfWeek.MONDAY,
 	overlayContent: @Composable ((startPadding: Dp) -> Unit)? = null
 ) {
 	val scope = rememberCoroutineScope()
@@ -623,7 +626,7 @@ fun <T> WeekViewCompose(
 
 	val startPage = Int.MAX_VALUE / 2
 	val pagerState = rememberPagerState(initialPage = startPage) { Int.MAX_VALUE }
-	val numDays = 5
+	val numDays = daysPerPage.coerceIn(1, 7)
 
 	val currentOnPageChange by rememberUpdatedState(onPageChange)
 
@@ -831,7 +834,7 @@ fun <T> WeekViewCompose(
 			datePickerDialogLastSelection = it
 
 			scope.launch {
-				val targetPage = (startPage + pageIndexForDate(date = it)).toInt()
+				val targetPage = (startPage + pageIndexForDate(date = it, weekLength = numDays)).toInt()
 				pagerState.animateScrollToPage(targetPage)
 			}
 		}

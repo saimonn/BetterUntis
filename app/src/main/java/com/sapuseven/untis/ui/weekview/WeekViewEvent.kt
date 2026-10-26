@@ -163,31 +163,35 @@ fun <T> WeekViewEvent(
 				text = event.top.asAnnotatedString(),
 				style = MaterialTheme.typography.bodySmall + eventStyle.lessonInfoStyle + textStyle,
 				textAlign = if (eventStyle.lessonInfoCentered) TextAlign.Center else TextAlign.Start,
-				maxLines = 1,
+				maxLines = 2,
 				overflow = TextOverflow.Ellipsis,
 				modifier = Modifier
 					.fillMaxWidth()
-					.align(Alignment.TopCenter)
+					.align(Alignment.TopStart)
+					.padding(top = innerPadding)
 			)
 
 			Text(
 				text = event.title.asAnnotatedString(),
-				style = MaterialTheme.typography.bodyLarge + eventStyle.lessonNameStyle + textStyle,
-				textAlign = TextAlign.Center,
-				maxLines = 1,
+				style = MaterialTheme.typography.bodyMedium + eventStyle.lessonNameStyle + textStyle,
+				textAlign = TextAlign.Start,
+				maxLines = 4,
 				overflow = TextOverflow.Ellipsis,
-				modifier = Modifier.align(Alignment.Center)
+				modifier = Modifier
+					.align(Alignment.CenterStart)
+					.padding(horizontal = innerPadding)
 			)
 
 			Text(
 				text = event.bottom.asAnnotatedString(),
 				style = MaterialTheme.typography.bodySmall + eventStyle.lessonInfoStyle + textStyle,
-				textAlign = if (eventStyle.lessonInfoCentered) TextAlign.Center else TextAlign.End,
-				maxLines = 1,
+				textAlign = if (eventStyle.lessonInfoCentered) TextAlign.Center else TextAlign.Start,
+				maxLines = 3,
 				overflow = TextOverflow.Ellipsis,
 				modifier = Modifier
 					.fillMaxWidth()
-					.align(Alignment.BottomCenter)
+					.align(Alignment.BottomStart)
+					.padding(bottom = innerPadding, horizontal = innerPadding)
 			)
 		}
 	}

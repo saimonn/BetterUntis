@@ -16,6 +16,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBarItem
@@ -87,6 +88,7 @@ fun Timetable(
 	val holidays by viewModel.holidays.collectAsStateWithLifecycle()
 	val lastRefresh by viewModel.lastRefresh.collectAsStateWithLifecycle()
 	val loadError by viewModel.loadError.collectAsStateWithLifecycle()
+	val daysPerPage by viewModel.daysPerPage.collectAsStateWithLifecycle()
 	val weekViewColorScheme by viewModel.weekViewColorScheme.collectAsStateWithLifecycle()
 	val weekViewScale by viewModel.weekViewScale.collectAsStateWithLifecycle()
 	val weekViewZoomEnabled by viewModel.weekViewZoomEnabled.collectAsStateWithLifecycle()
@@ -129,6 +131,21 @@ fun Timetable(
 					actions = {
 						if (viewModel.isDebug)
 							DebugDesclaimerAction()
+
+						Row {
+							AssistChip(
+								onClick = { viewModel.setDaysPerPage(1) },
+								label = { Text("1") }
+							)
+							AssistChip(
+								onClick = { viewModel.setDaysPerPage(3) },
+								label = { Text("3") }
+							)
+							AssistChip(
+								onClick = { viewModel.setDaysPerPage(5) },
+								label = { Text("5") }
+							)
+						}
 
 						ProfileSelectorAction(
 							users = users,
@@ -199,6 +216,7 @@ fun Timetable(
 							hourList = hourList,
 							//dividerWidth = viewModel.weekViewPreferences.dividerWidth,
 							colorScheme = weekViewColorScheme,
+							daysPerPage = daysPerPage,
 							modifier = Modifier
 								.fillMaxSize()
 								.disabled(disabled = needsPersonalTimetable)

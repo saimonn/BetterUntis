@@ -9,15 +9,6 @@ import java.time.temporal.WeekFields
 /**
  * Calculates the relative page index corresponding to a date.
  * The page index for today will always be `0`.
- *
- * @param date The date to calculate the page index for
- * @param clock The clock to use for the current date
- * @param firstDayOfWeek The first day of the week on a page
- * @param weekLength The number of days displayed per page
- * @param defaultToNext Whether to return the next or the previous week if the specified [date] isn't visible
- * (e.g. for weekends when only week days are displayed)
- * @return The page index relative to the page corresponding to today
- * @see startDateForPageIndex
  */
 internal fun pageIndexForDate(
 	date: LocalDate,
@@ -25,34 +16,49 @@ internal fun pageIndexForDate(
 	firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY,
 	weekLength: Int = 5,
 	defaultToNext: Boolean = true,
+	daysPerPage: Int = weekLength,
 ): Long {
-	val weeks = ChronoUnit.WEEKS.between(
-		weekStartForDate(LocalDate.now(clock), firstDayOfWeek), weekStartForDate(date, firstDayOfWeek)
-	)
+	val daysPerPage = daysPerPage.coerceIn(1, 7)
+	if (daysPerPage == 7) {
+		val weeks = ChronoUnit.WEEKS.between(
+			weekStartForDate(LocalDate.now(clock), firstDayOfWeek), weekStartForDate(date, firstDayOfWeek)
+		)
+		return if (ChronoUnit.DAYS.between(
+				weekStartForDate(date, firstDayOfWeek),
+				date
+			) >= weekLength && defaultToNext
+		) weeks + 1
+		else weeks
+	}
 
-	return if (ChronoUnit.DAYS.between(
-			weekStartForDate(date, firstDayOfWeek),
-			date
-		) >= weekLength && defaultToNext
-	) weeks + 1
-	else weeks
+	val todayStart = pageStartDate(LocalDate.now(clock), firstDayOfWeek, daysPerPage)
+	val dateStart = pageStartDate(date, firstDayOfWeek, daysPerPage)
+	return ChronoUnit.DAYS.between(todayStart, dateStart) / daysPerPage.toLong()
 }
 
 /**
  * Calculates the start date for a specific page.
- *
- * @param pageIndex The page index relative to today's page
- * @param clock The clock to use for the current date
- * @param firstDayOfWeek The first day of the week on a page
- * @return The date of the first visible day on the page specified by [pageIndex]
- * @see pageIndexForDate
  */
 internal fun startDateForPageIndex(
 	pageIndex: Long,
 	clock: Clock = Clock.systemDefaultZone(),
 	firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY,
+	daysPerPage: Int = 5,
 ): LocalDate {
-	return weekStartForDate(LocalDate.now(clock), firstDayOfWeek).plusWeeks(pageIndex)
+	val daysPerPage = daysPerPage.coerceIn(1, 7)
+	if (daysPerPage == 7) {
+		return weekStartForDate(LocalDate.now(clock), firstDayOfWeek).plusWeeks(pageIndex)
+	}
+	return pageStartDate(LocalDate.now(clock), firstDayOfWeek, daysPerPage).plusDays(pageIndex * daysPerPage.toLong())
+}
+
+private fun pageStartDate(date: LocalDate, firstDayOfWeek: DayOfWeek, daysPerPage: Int): LocalDate {
+	if (daysPerPage >= 7) return weekStartForDate(date, firstDayOfWeek)
+	if (daysPerPage == 1) return date
+	// For 3 days: align to week start so the view shifts in a predictable way
+	val weekStart = weekStartForDate(date, firstDayOfWeek)
+	val offset = ChronoUnit.DAYS.between(weekStart, date).toInt() / daysPerPage * daysPerPage
+	return weekStart.plusDays(offset.toLong())
 }
 
 private fun weekStartForDate(

@@ -105,6 +105,19 @@ class TimetableViewModel @Inject constructor(
 	private val _loadError = MutableStateFlow<Throwable?>(null)
 	val loadError: StateFlow<Throwable?> = _loadError
 
+	private val _daysPerPage = MutableStateFlow(5)
+	val daysPerPage: StateFlow<Int> = _daysPerPage
+
+	fun setDaysPerPage(days: Int) {
+		val days = days.coerceIn(1, 7)
+		if (_daysPerPage.value == days) return
+		_events.value = emptyMap()
+		_lastRefresh.value = null
+		_daysPerPage.value = days
+		currentPage = 0
+		onPageChange(0)
+	}
+
 	private val _weekViewColorScheme = MutableStateFlow(WeekViewColorScheme.default())
 	val weekViewColorScheme: StateFlow<WeekViewColorScheme> = _weekViewColorScheme
 
@@ -210,7 +223,7 @@ class TimetableViewModel @Inject constructor(
 			loading = true
 			((pageOffset - 1)..(pageOffset + 1)).map { targetPage ->
 				async {
-					val startDate = startDateForPageIndex(targetPage.toLong())
+					val startDate = startDateForPageIndex(targetPage.toLong(), daysPerPage = daysPerPage)
 					loadEvents(
 						startDate,
 						// Note: Right now this is a workaround to show the "last refresh" text when changing pages,
@@ -227,7 +240,7 @@ class TimetableViewModel @Inject constructor(
 	}
 
 	suspend fun onPageReload(pageOffset: Int) {
-		val startDate = startDateForPageIndex(pageOffset.toLong())
+		val startDate = startDateForPageIndex(pageOffset.toLong(), daysPerPage = daysPerPage)
 		loadEvents(startDate, FromCache.NEVER)
 			.catch(loadingExceptionHandler)
 			.collectEvents(startDate)
