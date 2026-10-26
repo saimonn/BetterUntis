@@ -88,20 +88,7 @@ fun TimetableDrawer(
 			}
 		}
 
-	/*LaunchedEffect(state.drawerState) {
-		snapshotFlow { state.drawerState.isOpen }
-			.distinctUntilChanged()
-			.drop(1)
-			.collect {
-				Log.i("Sentry", "Drawer isOpen: ${state.drawerState.isOpen}")
-				Breadcrumb().apply {
-					category = "ui.drawer"
-					level = SentryLevel.INFO
-					setData("isOpen", state.drawerState.isOpen)
-					Sentry.addBreadcrumb(this)
-				}
-			}
-	}*/
+	
 
 	BackHandler(enabled = drawerState.isOpen) {
 		scope.launch {

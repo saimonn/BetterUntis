@@ -36,11 +36,7 @@ import com.sapuseven.untis.BuildConfig
 import com.sapuseven.untis.R
 import com.sapuseven.untis.ui.common.LabeledCheckbox
 import com.sapuseven.untis.ui.functional.bottomInsets
-import io.sentry.Attachment
-import io.sentry.Sentry
-import io.sentry.UserFeedback
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,40 +47,14 @@ fun FeedbackDialog(
 	val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 	val scope = rememberCoroutineScope()
 	val context = LocalContext.current
-	val view = LocalView.current
 
 	var feedbackText by rememberSaveable { mutableStateOf("") }
 	var screenshotState by rememberSaveable { mutableStateOf(false) }
 
-	fun captureScreenshot() = ByteArrayOutputStream().use {
-		val bitmap =
-			Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).applyCanvas {
-				view.draw(this)
-			}
-		bitmap.compress(Bitmap.CompressFormat.PNG, 0, it)
-		it.toByteArray()
-	}
-
 	fun sendFeedback(includeScreenshot: Boolean) = scope.launch {
-		if (BuildConfig.DEBUG) {
-			Toast
-				.makeText(context, "Feedback not sent (developer build).", Toast.LENGTH_LONG)
-				.show()
-		} else {
-			val screenshot = if (includeScreenshot) captureScreenshot() else null
-
-			val sentryId = Sentry.captureMessage("WeekView Feedback") { scope ->
-				screenshot?.let {
-					scope.addAttachment(Attachment.fromScreenshot(it))
-				}
-			}
-			Sentry.captureUserFeedback(UserFeedback(sentryId).apply {
-				comments = feedbackText
-			})
-			Toast
-				.makeText(context, "Feedback sent. Thanks!", Toast.LENGTH_LONG)
-				.show()
-		}
+		Toast
+			.makeText(context, "Feedback is disabled in this build.", Toast.LENGTH_LONG)
+			.show()
 
 		feedbackText = ""
 		screenshotState = false

@@ -357,7 +357,7 @@
     <string name="infocenter_absences_list_ninety_days">Pokaži zadnjih 90 dana</string>
     <string name="infocenter_absences_list_schoolyear">Aktualna školska godina</string>
     <string name="main_dialog_reports_info_2">Ove vrijednosti možeš kasnije promijeniti u postavkama aplikacije.</string>
-    <string name="main_dialog_reports_info_1">BetterUntis koristi Sentry za prikupljanje informacija o prekidima rada aplikacije i drugim greškama.</string>
+    <string name="main_dialog_reports_info_1">Izvještavanje o pogreškama uklonjeno je iz ove verzije.</string>
     <string name="elementpicker_timetable_select">Odaberi raspored sati</string>
     <string name="all_personal_abbr">Osobno</string>
     <string name="preference_category_app_language">Jezik aplikacije</string>

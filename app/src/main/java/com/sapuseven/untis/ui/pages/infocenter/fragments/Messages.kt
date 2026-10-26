@@ -70,6 +70,7 @@ import com.sapuseven.untis.R
 import com.sapuseven.untis.api.model.untis.Attachment
 import com.sapuseven.untis.api.model.untis.MessageOfDay
 import com.sapuseven.untis.helpers.openAttachment
+import com.sapuseven.untis.helpers.shareAttachment
 import com.sapuseven.untis.model.rest.Message
 import com.sapuseven.untis.model.rest.MessageAttachment
 import com.sapuseven.untis.ui.dialogs.AttachmentsDialog
@@ -112,8 +113,8 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 	// has been loaded: the list entries only know `hasAttachments`.
 	var showMessageAttachments by remember { mutableStateOf(false) }
 
-	// The image attachment currently shown in the full screen viewer.
-	var openImage by remember { mutableStateOf<Pair<File, String>?>(null) }
+	// The image attachments currently shown in the full screen viewer.
+	var imageViewer by remember { mutableStateOf<MessageImageViewerState?>(null) }
 
 	// Hoisted so that the composables below receive a stable reference instead of a new method
 	// reference on every recomposition.
@@ -238,8 +239,11 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 				attachmentKey = attachmentKey,
 				loadAttachment = loadAttachment,
 				retryAttachment = retryAttachment,
-				onImageClick = { file, name -> openImage = file to name },
+				onImageClick = { messageId, images, index ->
+					imageViewer = MessageImageViewerState(messageId, images, index)
+				},
 				onFileClick = { file -> openAttachment(context, file) },
+				onFileShare = { file -> shareAttachment(context, file) },
 			)
 
 			MessageOfDayDetails(
@@ -273,11 +277,15 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 		}
 	}
 
-	openImage?.let { (file, name) ->
+	imageViewer?.let { viewer ->
 		MessageImageDialog(
-			file = file,
-			name = name,
-			onDismiss = { openImage = null }
+			images = viewer.images,
+			initialIndex = viewer.initialIndex,
+			states = attachmentStates,
+			keyOf = { attachmentKey(viewer.messageId, it) },
+			onLoad = { loadAttachment(viewer.messageId, it) },
+			onRetry = { retryAttachment(viewer.messageId, it) },
+			onDismiss = { imageViewer = null }
 		)
 	}
 
@@ -301,6 +309,15 @@ fun InfoCenterMessages(viewModel: InfoCenterViewModel = hiltViewModel()) {
 private data class MessageAttachmentSelection(
 	val messageId: Long,
 	val attachments: List<MessageAttachment>,
+)
+
+/**
+ * The image attachments shown in the full screen viewer, with the one that was tapped.
+ */
+private data class MessageImageViewerState(
+	val messageId: Long,
+	val images: List<MessageAttachment>,
+	val initialIndex: Int,
 )
 
 /**
@@ -335,8 +352,9 @@ private fun SharedTransitionScope.MessageDetails(
 	attachmentKey: (Long, MessageAttachment) -> String,
 	loadAttachment: (Long, MessageAttachment) -> Unit,
 	retryAttachment: (Long, MessageAttachment) -> Unit,
-	onImageClick: (File, String) -> Unit,
+	onImageClick: (Long, List<MessageAttachment>, Int) -> Unit,
 	onFileClick: (File) -> Unit,
+	onFileShare: (File) -> Unit,
 ) {
 	AnimatedContent(
 		modifier = modifier.fillMaxSize(),
@@ -411,7 +429,8 @@ private fun SharedTransitionScope.MessageDetails(
 										onLoad = { loadAttachment(selection.messageId, it) },
 										onRetry = { retryAttachment(selection.messageId, it) },
 										onImageClick = onImageClick,
-										onFileClick = onFileClick
+										onFileClick = onFileClick,
+										onFileShare = onFileShare
 									)
 								}
 

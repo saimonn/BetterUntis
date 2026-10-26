@@ -1,15 +1,25 @@
 package com.sapuseven.untis.domain
 
+import android.content.ContentValues
+import android.content.Context
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
+import android.webkit.MimeTypeMap
 import com.sapuseven.untis.data.cache.AttachmentCache
 import com.sapuseven.untis.data.repository.MessagesRepository
 import com.sapuseven.untis.model.rest.MessageAttachment
 import com.sapuseven.untis.model.rest.MessageAttachmentStorageUrl
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
 import javax.inject.Inject
 
 interface DownloadMessageAttachmentUseCase {
@@ -24,6 +34,7 @@ interface DownloadMessageAttachmentUseCase {
  * trip, so it is cached as well and refreshed when the server rejects it.
  */
 class DownloadMessageAttachmentUseCaseImpl @Inject constructor(
+	@ApplicationContext private val context: Context,
 	private val messagesRepository: MessagesRepository,
 	private val attachmentCache: AttachmentCache,
 ) : DownloadMessageAttachmentUseCase {
@@ -36,7 +47,10 @@ class DownloadMessageAttachmentUseCaseImpl @Inject constructor(
 	private val storageUrls = mutableMapOf<String, CachedStorageUrl>()
 
 	override suspend fun invoke(messageId: Long, attachment: MessageAttachment): File {
-		attachmentCache.find(messageId, attachment)?.let { return it }
+		attachmentCache.find(messageId, attachment)?.let { cached ->
+			saveToPublicDownloads(cached, attachment)
+			return cached
+		}
 
 		val attachmentId = requireNotNull(attachment.id) {
 			"Attachment ${attachment.name} has no id"
@@ -45,11 +59,66 @@ class DownloadMessageAttachmentUseCaseImpl @Inject constructor(
 		val temporaryFile = attachmentCache.temporaryFile(messageId, attachment)
 		try {
 			download(attachmentId, attachment, temporaryFile)
-			return attachmentCache.commit(temporaryFile, messageId, attachment)
+			val result = attachmentCache.commit(temporaryFile, messageId, attachment)
+			saveToPublicDownloads(result, attachment)
+			return result
 		} finally {
 			// No-op after a successful commit, removes the partial file otherwise.
 			temporaryFile.delete()
 		}
+	}
+
+	private suspend fun saveToPublicDownloads(cached: File, attachment: MessageAttachment) =
+		withContext(Dispatchers.IO) {
+			try {
+				val displayName = (attachment.fileName ?: attachment.name)
+					?.substringAfterLast('/')
+					?.substringAfterLast('\\')
+					?.takeIf { it.isNotBlank() }
+					?: cached.name.substringAfterLast('_', cached.name)
+
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+					val resolver = context.contentResolver
+					val contentValues = ContentValues().apply {
+						put(MediaStore.Downloads.DISPLAY_NAME, displayName)
+						put(MediaStore.Downloads.MIME_TYPE, mimeType(displayName))
+						put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Untis")
+						put(MediaStore.Downloads.IS_PENDING, 1)
+					}
+
+					val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+						?: return@withContext
+
+					resolver.openOutputStream(uri)?.use { output ->
+						FileInputStream(cached).use { input ->
+							input.copyTo(output)
+						}
+					}
+
+					contentValues.clear()
+					contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
+					resolver.update(uri, contentValues, null, null)
+				} else {
+					val downloadsDir =
+						Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+					val untisDir = File(downloadsDir, "Untis")
+					if (!untisDir.exists()) {
+						untisDir.mkdirs()
+					}
+					val destination = File(untisDir, displayName)
+					if (!destination.exists()) {
+						cached.copyTo(destination, overwrite = false)
+					}
+				}
+			} catch (e: Exception) {
+				Log.w(TAG, "Failed to save attachment to Downloads/Untis", e)
+			}
+		}
+
+	private fun mimeType(name: String): String {
+		val extension = name.substringAfterLast('.', "").lowercase()
+		return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+			?: "application/octet-stream"
 	}
 
 	private suspend fun download(

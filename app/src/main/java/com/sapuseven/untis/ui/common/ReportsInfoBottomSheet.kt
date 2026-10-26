@@ -107,18 +107,20 @@ fun ReportsInfoBottomSheet(
 
 						SwitchPreference(
 							title = { Text(stringResource(R.string.preference_reports_enable)) },
+							summary = { Text("Disabled in this build") },
 							settingsRepository = repository,
-							value = { it.errorReportingEnable },
-							onValueChange = { errorReportingEnable = it }
+							value = { false },
+							onValueChange = {},
+							enabledCondition = { false }
 						)
 
 						SwitchPreference(
 							title = { Text(stringResource(R.string.preference_reports_breadcrumbs)) },
-							summary = { Text(stringResource(R.string.preference_reports_breadcrumbs_desc)) },
+							summary = { Text("Disabled in this build") },
 							settingsRepository = repository,
-							value = { it.errorReportingEnableBreadcrumbs },
-							onValueChange = { errorReportingEnableBreadcrumbs = it },
-							enabledCondition = { it.errorReportingEnable }
+							value = { false },
+							onValueChange = {},
+							enabledCondition = { false }
 						)
 
 						HorizontalDivider()

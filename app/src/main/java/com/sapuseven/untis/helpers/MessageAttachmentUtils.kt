@@ -53,6 +53,28 @@ fun openAttachment(context: Context, file: File) {
 	}
 }
 
+/**
+ * Shares a downloaded attachment through the Android share sheet.
+ */
+fun shareAttachment(context: Context, file: File) {
+	val uri = FileProvider.getUriForFile(context, "${BuildConfig.APPLICATION_ID}.fileprovider", file)
+
+	val intent = Intent(Intent.ACTION_SEND)
+		.setType(mimeType(file))
+		.putExtra(Intent.EXTRA_STREAM, uri)
+		.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+	try {
+		context.startActivity(Intent.createChooser(intent, context.getString(R.string.all_share)))
+	} catch (e: ActivityNotFoundException) {
+		Toast.makeText(
+			context,
+			context.getString(R.string.infocenter_messages_attachment_no_app),
+			Toast.LENGTH_LONG
+		).show()
+	}
+}
+
 private fun mimeType(file: File): String {
 	val extension = file.name.substringAfterLast('.', "").lowercase()
 	val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)

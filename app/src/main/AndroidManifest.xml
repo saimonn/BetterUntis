@@ -47,9 +47,7 @@
 		android:supportsRtl="true"
 		android:theme="@style/Theme.Material3.DayNight">
 
-		<meta-data
-			android:name="io.sentry.auto-init"
-			android:value="false" />
+
 
 		<activity
 			android:name=".activities.MainActivity"

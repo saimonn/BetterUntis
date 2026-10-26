@@ -14,6 +14,7 @@ import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.sapuseven.untis.R
 import com.sapuseven.untis.helpers.attachmentName
 import com.sapuseven.untis.helpers.openAttachment
+import com.sapuseven.untis.helpers.shareAttachment
 import com.sapuseven.untis.model.rest.MessageAttachment
 import com.sapuseven.untis.ui.pages.infocenter.AttachmentUiState
 
@@ -47,6 +49,8 @@ import com.sapuseven.untis.ui.pages.infocenter.AttachmentUiState
  * [FileProvider] content URI. The download itself is done by the view model, so its state
  * survives the dialog being recreated and a download that is already running is not restarted.
  */
+private enum class AttachmentAction { Open, Share }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageAttachmentsDialog(
@@ -59,15 +63,19 @@ fun MessageAttachmentsDialog(
 	onRetry: (MessageAttachment) -> Unit,
 ) {
 	var selected by remember { mutableStateOf<MessageAttachment?>(null) }
+	var action by remember { mutableStateOf(AttachmentAction.Open) }
 
 	val context = LocalContext.current
 	val selectedState = selected?.let { states[keyOf(it)] }
 
-	LaunchedEffect(selected, selectedState) {
+	LaunchedEffect(selected, selectedState, action) {
 		val attachment = selected ?: return@LaunchedEffect
 		when (selectedState) {
 			is AttachmentUiState.Ready -> {
-				openAttachment(context, selectedState.file)
+				if (action == AttachmentAction.Share)
+					shareAttachment(context, selectedState.file)
+				else
+					openAttachment(context, selectedState.file)
 				selected = null
 			}
 
@@ -123,9 +131,26 @@ fun MessageAttachmentsDialog(
 							trailingContent = {
 								if (attachment == selected)
 									CircularProgressIndicator(modifier = Modifier.size(24.dp))
+								else
+									IconButton(onClick = {
+										action = AttachmentAction.Share
+										if (states[keyOf(attachment)] is AttachmentUiState.Failed)
+											onRetry(attachment)
+										else
+											onLoad(attachment)
+										selected = attachment
+									}) {
+										Icon(
+											painter = painterResource(id = R.drawable.all_share),
+											contentDescription = stringResource(
+												id = R.string.infocenter_messages_attachment_share
+											)
+										)
+									}
 							},
 							modifier = Modifier
 								.clickable(enabled = selected == null) {
+									action = AttachmentAction.Open
 									if (states[keyOf(attachment)] is AttachmentUiState.Failed)
 										onRetry(attachment)
 									else

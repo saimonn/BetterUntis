@@ -27,7 +27,6 @@ import com.sapuseven.untis.activities.AutoMuteConfigurationActivity
 import com.sapuseven.untis.services.AutoMuteServiceZenRuleImpl
 import com.sapuseven.untis.ui.pages.settings.SettingsScreenViewModel
 import com.sapuseven.untis.ui.pages.settings.automute.AutoMuteSettingsViewModel.Companion.EXTRA_USER_ID
-import io.sentry.Sentry
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -194,12 +193,11 @@ fun SettingsCategoryGeneral(viewModel: SettingsScreenViewModel) {
 			val context = LocalContext.current
 			Preference(
 				title = { Text("Send test report") },
-				summary = { Text("Sends a report to Sentry to test error reporting") },
+				summary = { Text("Disabled in this build") },
 				onClick = {
-					Sentry.captureException(Exception("Test report"))
 					Toast.makeText(
 						context,
-						"Report has been sent",
+						"Error reporting removed",
 						Toast.LENGTH_SHORT
 					).show()
 				}

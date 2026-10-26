@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,8 +63,9 @@ fun MessageAttachments(
 	keyOf: (MessageAttachment) -> String,
 	onLoad: (MessageAttachment) -> Unit,
 	onRetry: (MessageAttachment) -> Unit,
-	onImageClick: (File, String) -> Unit,
+	onImageClick: (Long, List<MessageAttachment>, Int) -> Unit,
 	onFileClick: (File) -> Unit,
+	onFileShare: (File) -> Unit,
 	modifier: Modifier = Modifier,
 ) {
 	val images = remember(attachments) { attachments.filter { it.isInlineImage() } }
@@ -76,14 +78,14 @@ fun MessageAttachments(
 			.padding(horizontal = 16.dp, vertical = 8.dp),
 		verticalArrangement = Arrangement.spacedBy(8.dp),
 	) {
-		images.forEach { attachment ->
+		images.forEachIndexed { index, attachment ->
 			key(attachment.id, attachment.attachmentName()) {
 				MessageAttachmentImage(
 					attachment = attachment,
 					state = states[keyOf(attachment)],
 					onLoad = onLoad,
 					onRetry = onRetry,
-					onImageClick = onImageClick
+					onClick = { onImageClick(messageId, images, index) }
 				)
 			}
 		}
@@ -95,7 +97,8 @@ fun MessageAttachments(
 					state = states[keyOf(attachment)],
 					onLoad = onLoad,
 					onRetry = onRetry,
-					onFileClick = onFileClick
+					onFileClick = onFileClick,
+					onFileShare = onFileShare
 				)
 			}
 		}
@@ -115,7 +118,7 @@ private fun MessageAttachmentImage(
 	state: AttachmentUiState?,
 	onLoad: (MessageAttachment) -> Unit,
 	onRetry: (MessageAttachment) -> Unit,
-	onImageClick: (File, String) -> Unit,
+	onClick: () -> Unit,
 ) {
 	// Runs again when the image is shown again (e.g. after switching tabs). Loading is idempotent,
 	// so a download that is already running or finished is never restarted.
@@ -129,7 +132,7 @@ private fun MessageAttachmentImage(
 		is AttachmentUiState.Ready -> MessageAttachmentImageContent(
 			file = state.file,
 			name = name,
-			onClick = { onImageClick(state.file, name) },
+			onClick = onClick,
 			onRetry = { onRetry(attachment) }
 		)
 
@@ -143,11 +146,14 @@ private fun MessageAttachmentImage(
 	}
 }
 
+private enum class AttachmentAction { Open, Share }
+
 /**
  * A non-image attachment shown inline, styled like an entry of the attachment list.
  *
  * Nothing is downloaded before the user taps the row, some attachments can be large. Once the
- * download finished, the file is opened immediately.
+ * download finished, the file is opened immediately. The share button downloads the file first if
+ * necessary and then opens the Android share sheet.
  */
 @Composable
 private fun MessageAttachmentFile(
@@ -156,21 +162,45 @@ private fun MessageAttachmentFile(
 	onLoad: (MessageAttachment) -> Unit,
 	onRetry: (MessageAttachment) -> Unit,
 	onFileClick: (File) -> Unit,
+	onFileShare: (File) -> Unit,
 ) {
 	val name = attachment.attachmentName()
-	var openWhenReady by remember(attachment) { mutableStateOf(false) }
+	var pendingAction by remember(attachment) { mutableStateOf<AttachmentAction?>(null) }
 	val failed = state as? AttachmentUiState.Failed
-	val loading = openWhenReady || state is AttachmentUiState.Loading
+	val loading = pendingAction != null || state is AttachmentUiState.Loading
 
-	LaunchedEffect(state, openWhenReady) {
-		when {
-			!openWhenReady -> Unit
-			state is AttachmentUiState.Ready -> {
-				openWhenReady = false
-				onFileClick(state.file)
+	LaunchedEffect(state, pendingAction) {
+		val action = pendingAction ?: return@LaunchedEffect
+		when (state) {
+			is AttachmentUiState.Ready -> {
+				pendingAction = null
+				if (action == AttachmentAction.Open)
+					onFileClick(state.file)
+				else
+					onFileShare(state.file)
 			}
 
-			state is AttachmentUiState.Failed -> openWhenReady = false
+			is AttachmentUiState.Failed -> pendingAction = null
+			else -> Unit
+		}
+	}
+
+	fun start(action: AttachmentAction) {
+		when (val current = state) {
+			is AttachmentUiState.Ready -> if (action == AttachmentAction.Open)
+				onFileClick(current.file)
+			else
+				onFileShare(current.file)
+
+			is AttachmentUiState.Failed -> {
+				onRetry(attachment)
+				pendingAction = action
+			}
+
+			else -> {
+				onLoad(attachment)
+				pendingAction = action
+			}
 		}
 	}
 
@@ -179,20 +209,7 @@ private fun MessageAttachmentFile(
 			.fillMaxWidth()
 			.clip(RoundedCornerShape(8.dp))
 			.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-			.clickable {
-				when (val current = state) {
-					is AttachmentUiState.Ready -> onFileClick(current.file)
-					is AttachmentUiState.Failed -> {
-						onRetry(attachment)
-						openWhenReady = true
-					}
-
-					else -> {
-						onLoad(attachment)
-						openWhenReady = true
-					}
-				}
-			}
+			.clickable { start(AttachmentAction.Open) }
 			.padding(12.dp),
 		verticalAlignment = Alignment.CenterVertically,
 		horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -237,6 +254,18 @@ private fun MessageAttachmentFile(
 				modifier = Modifier.size(20.dp),
 				strokeWidth = 2.dp
 			)
+		} else {
+			IconButton(
+				onClick = { start(AttachmentAction.Share) },
+				enabled = pendingAction == null
+			) {
+				Icon(
+					painter = painterResource(id = R.drawable.all_share),
+					contentDescription = stringResource(
+						id = R.string.infocenter_messages_attachment_share
+					)
+				)
+			}
 		}
 	}
 }

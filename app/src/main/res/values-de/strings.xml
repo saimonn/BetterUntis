@@ -344,7 +344,7 @@
     <string name="infocenter_absences_filter_sort">Sortierung</string>
     <string name="infocenter_absences_filter_newest_first">Neueste zuerst</string>
     <string name="infocenter_absences_filter">Abwesenheiten filtern</string>
-    <string name="main_dialog_reports_info_1">BetterUntis verwendet Sentry, um Informationen über Abstürze und andere Fehler zu sammeln.</string>
+    <string name="main_dialog_reports_info_1">Die Fehlerberichterstattung wurde aus diesem Build entfernt.</string>
     <string name="infocenter_absences_filter_only_unexcused">Nur unentschuldigte anzeigen</string>
     <string name="infocenter_absences_filter_time_ranges">Zeitraum</string>
     <string name="preference_reports_breadcrumbs">Detaillierte Fehlerberichte senden</string>

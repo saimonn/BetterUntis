@@ -7,7 +7,6 @@ import java.util.Properties
 
 plugins {
 	alias(libs.plugins.agp.application)
-	alias(libs.plugins.sentry.gradle)
 	alias(libs.plugins.kotlin.android)
 	alias(libs.plugins.kotlin.compose)
 	alias(libs.plugins.kotlin.serialization)
@@ -18,7 +17,6 @@ plugins {
 	alias(libs.plugins.kotlin.parcelize)
 	alias(libs.plugins.protobuf)
 }
-
 // Auto-generates a new version code every minute
 fun generateVersionCode(): Int {
 	return (Date().time / 1000 / 60).toInt()
@@ -82,7 +80,6 @@ android {
 		vectorDrawables.useSupportLibrary = true
 		testInstrumentationRunner = "com.sapuseven.untis.HiltTestRunner"
 
-		buildConfigField("String", "SENTRY_DSN", "\"https://d3b77222abce4fcfa74fda2185e0f8dc@o1136770.ingest.sentry.io/6188900\"")
 		buildConfigField("String", "GITHUB_REPOSITORY", "\"${resolveGithubRepository()}\"")
 
 		ksp {
@@ -167,12 +164,6 @@ android {
 	}
 }
 
-sentry {
-	// Forks do not have the SENTRY_AUTH_TOKEN secret, so SENTRY_PROJECT is
-	// empty rather than absent: only upload mappings when it is set.
-	autoUploadProguardMapping.set(!System.getenv("SENTRY_PROJECT").isNullOrBlank())
-}
-
 aboutLibraries {
 	includePlatform = false
 	duplicationMode = com.mikepenz.aboutlibraries.plugin.DuplicateMode.MERGE
@@ -252,8 +243,6 @@ dependencies {
 	implementation(libs.material.theme.adapter)
 	implementation(libs.mikepenz.aboutlibraries.compose)
 	implementation(libs.mikepenz.aboutlibraries.core)
-	implementation(libs.sentry.android)
-	implementation(libs.sentry.compose.android)
 	implementation(libs.zxing)
 	implementation(libs.protobuf.javalite)
 	implementation(libs.androidx.transition.ktx)
@@ -287,14 +276,6 @@ dependencies {
 	androidTestImplementation(libs.hilt.android.testing)
 	debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-	// fix for Crash from missing `beginTransactionReadOnly()` method in Room due to sqlite version mismatch
-	// see https://issuetracker.google.com/issues/400483860#comment7
-	implementation("androidx.sqlite:sqlite:2.5.1") {
-		exclude(group = "io.sentry", module = "sentry-android-sqlite")
-	}
-	implementation("androidx.sqlite:sqlite-ktx:2.5.1") {
-		exclude(group = "io.sentry", module = "sentry-android-sqlite")
-	}
 	configurations.configureEach {
 		resolutionStrategy {
 			force("androidx.sqlite:sqlite:2.5.1")

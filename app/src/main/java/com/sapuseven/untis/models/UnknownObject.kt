@@ -1,7 +1,5 @@
 package com.sapuseven.untis.models
 
-import io.sentry.Sentry
-import io.sentry.SentryLevel
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -28,21 +26,7 @@ class UnknownObject(val jsonString: String?) {
 		}
 
 		fun validate(fields: Map<String, UnknownObject?>) {
-			fields.forEach {
-				it.value?.let { value ->
-					if (value.jsonString?.isNotBlank() == true
-						&& value.jsonString.toIntOrNull() != 0
-						&& value.jsonString != "\"\""
-						&& value.jsonString != "[]"
-						&& value.jsonString != "{}"
-						&& value.jsonString != "null"
-					)
-						Sentry.captureMessage(
-							"Unknown JSON object \"${it.key}\" encountered, value: ${value.jsonString}",
-							SentryLevel.DEBUG
-						)
-				}
-			}
+			// Sentry reporting removed.
 		}
 	}
 
