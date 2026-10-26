@@ -35,6 +35,8 @@ data class UserData(
 		get() = when (elemType) {
 			null -> firstChildAsStudent()
 			ElementType.LEGAL_GUARDIAN, ElementType.APPRENTICE_REPRESENTATIVE -> firstChildAsStudent()
+			// A parent element itself is accepted by some servers, so it is kept as a fallback.
+			ElementType.PARENT -> firstChildAsStudent() ?: PeriodElement(elemType, elemId)
 			else -> PeriodElement(elemType, elemId)
 		}
 
