@@ -1,0 +1,2 @@
+- Remove Sentry crash reporting
+- Automatically save message attachments to Downloads/Untis
