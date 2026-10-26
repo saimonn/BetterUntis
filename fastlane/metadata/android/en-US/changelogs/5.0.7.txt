@@ -1,0 +1,4 @@
+- Fix timetable for parent accounts when the server does not list children (fallback to class timetable)
+- Show a clear error when the timetable cannot be loaded
+- Explain when exams or homework are not available for an account
+- The feedback button now opens the GitHub issue tracker
