@@ -104,6 +104,17 @@ fi
 
 # --- Push ----------------------------------------------------------------------
 
+# Remember the runs that already exist for this tag (e.g. a previous failed
+# attempt), so the verification below only ever looks at the run we trigger now.
+BASELINE_RUNS=""
+if command -v gh >/dev/null 2>&1; then
+	BASELINE_RUNS=" $(gh run list --repo "$(git remote get-url "${REMOTE}" \
+		| sed -E 's#^(git@|ssh://git@|https?://)github\.com[:/]##; s#\.git$##')" \
+		--workflow deploy.yml --limit 100 --json databaseId,headBranch \
+		--jq ".[] | select(.headBranch == \"${VERSION}\") | .databaseId" 2>/dev/null \
+		| tr '\n' ' ' || true)"
+fi
+
 git push "${REMOTE}" "${BRANCH}"
 
 if git rev-parse "refs/tags/${VERSION}" >/dev/null 2>&1; then
@@ -141,9 +152,10 @@ echo "Waiting for the 'Deploy App' workflow for tag ${VERSION} on ${REPO}..."
 DEADLINE=$(( $(date +%s) + TIMEOUT_MINUTES * 60 ))
 RUN_ID=""
 while [[ $(date +%s) -lt ${DEADLINE} ]]; do
-	RUN_ID="$(gh run list --repo "${REPO}" --workflow deploy.yml --limit 20 \
-		--json databaseId,headBranch,status,event \
-		--jq ".[] | select(.headBranch == \"${VERSION}\") | .databaseId" 2>/dev/null \
+	RUN_ID="$(gh run list --repo "${REPO}" --workflow deploy.yml --limit 50 \
+		--json databaseId,headBranch,headSha \
+		--jq ".[] | select(.headBranch == \"${VERSION}\" and (.headSha | startswith(\"${COMMIT:0:12}\"))) | .databaseId" 2>/dev/null \
+		| grep -v -w -E "$(printf '%s' "${BASELINE_RUNS:-none}" | tr ' ' '|' | sed 's/^|//; s/|$//')" \
 		| head -n 1 || true)"
 
 	if [[ -n "${RUN_ID}" ]]; then

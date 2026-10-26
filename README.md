@@ -23,6 +23,11 @@ The Info Center used to show *that* a message has attachments, but not the attac
   download URL is reused for a few minutes, so reopening a message or switching between the Info
   Center tabs does not download anything twice. Interrupted downloads are written to a temporary
   file and renamed on completion, so a truncated file can never be mistaken for a cached one.
+- Every downloaded attachment is also copied to `Downloads/Untis` (the folder the official Untis
+  app uses), so it stays available outside the app and after the cache is cleared. Android 10 and
+  newer use `MediaStore`, so no storage permission is required. On Android 9 and older the public
+  folder needs `WRITE_EXTERNAL_STORAGE`; when it is not granted the file is written to
+  `Android/data/com.github.<owner>.betteruntis/files/Download/Untis` instead.
 
 ### Direct access to messages
 
@@ -40,7 +45,7 @@ flavor is built:
 - no `google-services.json`, no GMS dependency at all,
 - smaller APK, works on de-Googled devices.
 
-Crash reporting through Sentry is not wired up in this fork either, nothing is sent anywhere.
+Crash reporting through Sentry has been removed entirely, nothing is sent anywhere.
 
 ### Fork identity
 
