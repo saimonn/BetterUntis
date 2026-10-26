@@ -1,0 +1,1 @@
+- Add day/3-day/week view toggle with more details per lesson in day view
