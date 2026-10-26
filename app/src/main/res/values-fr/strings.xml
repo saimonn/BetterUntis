@@ -347,7 +347,7 @@
     <string name="preference_reports_breadcrumbs">Envoyer les erreurs détaillées</string>
     <string name="preference_reports_breadcrumbs_desc">Inclure des informations supplémentaires sur ce qui s\'est passé avant qu\'une erreur ne se produise.</string>
     <string name="main_dialog_reports_info_2">Vous pouvez toujours modifier ces valeurs ultérieurement dans les paramètres de l\'application.</string>
-    <string name="main_dialog_reports_info_1">Le rapport d'erreurs a été supprimé de ce build.</string>
+    <string name="main_dialog_reports_info_1">Le rapport des erreurs a été supprimé de ce build.</string>
     <string name="main_dialog_reports_save">Sauver</string>
     <string name="infocenter_absences_list_seven_days">Afficher les 7 derniers jours</string>
     <string name="infocenter_absences_list_fourteen_days">Afficher les 14 derniers jours</string>

@@ -1,12 +1,15 @@
 package com.sapuseven.untis.domain
 
+import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.webkit.MimeTypeMap
+import androidx.core.content.ContextCompat
 import com.sapuseven.untis.data.cache.AttachmentCache
 import com.sapuseven.untis.data.repository.MessagesRepository
 import com.sapuseven.untis.model.rest.MessageAttachment
@@ -99,9 +102,22 @@ class DownloadMessageAttachmentUseCaseImpl @Inject constructor(
 					contentValues.put(MediaStore.Downloads.IS_PENDING, 0)
 					resolver.update(uri, contentValues, null, null)
 				} else {
-					val downloadsDir =
+					// Android 9 and older need WRITE_EXTERNAL_STORAGE to write into the public
+					// Downloads folder and can only be granted it interactively, so fall back to
+					// the app-specific external folder (still browsable, removed on uninstall).
+					val canWritePublicStorage = ContextCompat.checkSelfPermission(
+						context,
+						Manifest.permission.WRITE_EXTERNAL_STORAGE
+					) == PackageManager.PERMISSION_GRANTED
+
+					val baseDir = if (canWritePublicStorage) {
 						Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-					val untisDir = File(downloadsDir, "Untis")
+					} else {
+						context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+							?: return@withContext
+					}
+
+					val untisDir = File(baseDir, "Untis")
 					if (!untisDir.exists()) {
 						untisDir.mkdirs()
 					}

@@ -4,10 +4,17 @@ set -euo pipefail
 # Create a release from the current commit (no local Android build/signing).
 # Usage: ./release.sh <version> [remote] [branch]
 # Example: ./release.sh 5.0.5 fork feature/message-attachments
+#
+# Everything is built and published by GitHub Actions (see
+# .github/workflows/deploy.yml, triggered by the pushed tag). This script only
+# validates the tree, pushes the branch, moves the tag and then waits for the
+# workflow so a broken build is reported here instead of silently producing no
+# release for Obtainium.
 
 VERSION="${1:-}"
 REMOTE="${2:-fork}"
 BRANCH="${3:-$(git rev-parse --abbrev-ref HEAD)}"
+TIMEOUT_MINUTES="${RELEASE_TIMEOUT_MINUTES:-25}"
 
 if [[ -z "${VERSION}" ]]; then
 	echo "Usage: $0 <version> [remote] [branch]" >&2
@@ -19,10 +26,8 @@ if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9]+)*$ ]]; then
 	exit 1
 fi
 
-# Ensure we are in a git repo
 git rev-parse --git-dir >/dev/null
 
-# Ensure working tree is clean
 if [[ -n "$(git status --porcelain)" ]]; then
 	echo "Error: working tree not clean. Commit/stash changes first." >&2
 	exit 1
@@ -34,7 +39,8 @@ echo "Remote: ${REMOTE}"
 echo "Branch: ${BRANCH}"
 echo "Commit: ${COMMIT}"
 
-# Ensure changelog exists
+# --- Changelog -----------------------------------------------------------------
+
 CHANGELOG="fastlane/metadata/android/en-US/changelogs/${VERSION}.txt"
 if [[ ! -f "${CHANGELOG}" ]]; then
 	echo "Error: missing ${CHANGELOG}" >&2
@@ -42,18 +48,135 @@ if [[ ! -f "${CHANGELOG}" ]]; then
 	exit 1
 fi
 
-# Push branch first
+if [[ ! -s "${CHANGELOG}" ]]; then
+	echo "Error: ${CHANGELOG} is empty." >&2
+	exit 1
+fi
+
+# --- Resource validation -------------------------------------------------------
+# A single malformed strings.xml (e.g. an unescaped apostrophe) makes AAPT2 fail
+# and the workflow then publishes nothing. Catch it before spending a CI run.
+
+if command -v python3 >/dev/null 2>&1; then
+	echo "Validating string resources..."
+	if ! python3 - "${VERSION}" <<'PY'
+import glob
+import sys
+import xml.etree.ElementTree as ET
+
+problems = []
+
+for path in sorted(glob.glob("app/src/main/res/values*/strings.xml")):
+    try:
+        tree = ET.parse(path)
+    except ET.ParseError as e:
+        problems.append(f"{path}: invalid XML: {e}")
+        continue
+
+    for element in tree.getroot().iter("string"):
+        name = element.get("name")
+        text = "".join(element.itertext())
+        if not text:
+            continue
+        # Values wrapped in double quotes are exempt from apostrophe escaping.
+        if len(text) > 1 and text.startswith('"') and text.endswith('"'):
+            continue
+        for index, char in enumerate(text):
+            if char != "'":
+                continue
+            if index > 0 and text[index - 1] == "\\":
+                continue
+            problems.append(
+                f"{path}: <string name=\"{name}\"> has an unescaped apostrophe "
+                f"(use \\' or wrap the value in double quotes)"
+            )
+            break
+
+if problems:
+    print("\n".join(problems), file=sys.stderr)
+    sys.exit(1)
+PY
+	then
+		echo "Error: string resource validation failed, see above." >&2
+		exit 1
+	fi
+fi
+
+# --- Push ----------------------------------------------------------------------
+
 git push "${REMOTE}" "${BRANCH}"
 
-# Move tag to current commit if it exists, create if not
 if git rev-parse "refs/tags/${VERSION}" >/dev/null 2>&1; then
 	echo "Tag ${VERSION} exists, moving it to ${COMMIT}"
 	git tag -d "${VERSION}" >/dev/null
 	git push "${REMOTE}" ":refs/tags/${VERSION}" >/dev/null || true
 fi
 
-git tag "${VERSION}" "${COMMIT}"
-git push "${REMOTE}" "${VERSION}"
+git tag -f "${VERSION}" "${COMMIT}"
+git push -f "${REMOTE}" "${VERSION}"
 
-echo "Done. Tag ${VERSION} pushed to ${REMOTE} pointing to ${COMMIT}."
-echo "GitHub Actions (Build App / Deploy App) should start for tag ${VERSION}."
+echo "Tag ${VERSION} pushed to ${REMOTE} pointing to ${COMMIT}."
+
+# --- Verification --------------------------------------------------------------
+# The release only exists once the workflow succeeded and uploaded the APK.
+# Without this check a red workflow looks like a successful release.
+
+if ! command -v gh >/dev/null 2>&1; then
+	echo "gh CLI not found, skipping release verification."
+	echo "Check https://github.com -> Actions -> 'Deploy App' for tag ${VERSION}."
+	exit 0
+fi
+
+REMOTE_URL="$(git remote get-url "${REMOTE}")"
+REPO="$(printf '%s' "${REMOTE_URL}" \
+	| sed -E 's#^(git@|ssh://git@|https?://)github\.com[:/]##; s#\.git$##')"
+
+if [[ ! "${REPO}" =~ ^[^/]+/[^/]+$ ]]; then
+	echo "Could not derive the GitHub repository from ${REMOTE_URL}, skipping verification."
+	exit 0
+fi
+
+echo "Waiting for the 'Deploy App' workflow for tag ${VERSION} on ${REPO}..."
+
+DEADLINE=$(( $(date +%s) + TIMEOUT_MINUTES * 60 ))
+RUN_ID=""
+while [[ $(date +%s) -lt ${DEADLINE} ]]; do
+	RUN_ID="$(gh run list --repo "${REPO}" --workflow deploy.yml --limit 20 \
+		--json databaseId,headBranch,status,event \
+		--jq ".[] | select(.headBranch == \"${VERSION}\") | .databaseId" 2>/dev/null \
+		| head -n 1 || true)"
+
+	if [[ -n "${RUN_ID}" ]]; then
+		STATUS="$(gh run view "${RUN_ID}" --repo "${REPO}" --json status,conclusion \
+			--jq '.status + " " + (.conclusion // "")' 2>/dev/null || echo "queued ")"
+
+		if [[ "${STATUS}" == "completed success" ]]; then
+			echo "Workflow ${RUN_ID} succeeded."
+			break
+		fi
+
+		if [[ "${STATUS}" == completed* ]]; then
+			echo "Error: workflow ${RUN_ID} finished with '${STATUS#completed }'." >&2
+			echo "Inspect it with: gh run view ${RUN_ID} --repo ${REPO} --log-failed" >&2
+			exit 1
+		fi
+	fi
+
+	sleep 20
+done
+
+if [[ -z "${RUN_ID}" ]]; then
+	echo "Error: no 'Deploy App' workflow run appeared for tag ${VERSION} within ${TIMEOUT_MINUTES} minutes." >&2
+	exit 1
+fi
+
+if ! gh release view "${VERSION}" --repo "${REPO}" --json tagName,assets \
+	--jq '.assets[].name' 2>/dev/null | grep -q "BetterUntis-${VERSION}.apk"; then
+	echo "Error: release ${VERSION} on ${REPO} has no BetterUntis-${VERSION}.apk asset." >&2
+	gh release view "${VERSION}" --repo "${REPO}" 2>&1 | head -20 >&2 || true
+	exit 1
+fi
+
+echo "Release ${VERSION} is published with BetterUntis-${VERSION}.apk:"
+gh release view "${VERSION}" --repo "${REPO}" --json url,assets \
+	--jq '.url, (.assets[] | "  " + .name + " (" + (.size | tostring) + " bytes)")'
