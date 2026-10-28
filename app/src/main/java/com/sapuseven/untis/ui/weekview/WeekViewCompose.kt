@@ -722,8 +722,7 @@ fun <T> WeekViewCompose(
 
 		HorizontalPager(state = pagerState) { index ->
 			val pageOffset = index - startPage
-			val visibleStartDate =
-				weekLogicService.currentWeekStartDate().plusWeeks(pageOffset.toLong()) // 1 = Monday, 7 = Sunday
+			val visibleStartDate = startDateForPageIndex(pageOffset.toLong(), daysPerPage = numDays)
 
 			Column {
 				WeekViewHeader(
