@@ -628,6 +628,10 @@ fun <T> WeekViewCompose(
 	val pagerState = rememberPagerState(initialPage = startPage) { Int.MAX_VALUE }
 	val numDays = daysPerPage.coerceIn(1, 7)
 
+	LaunchedEffect(numDays) {
+		pagerState.scrollToPage(startPage)
+	}
+
 	val currentOnPageChange by rememberUpdatedState(onPageChange)
 
 	var datePickerDialog by remember { mutableStateOf(false) }

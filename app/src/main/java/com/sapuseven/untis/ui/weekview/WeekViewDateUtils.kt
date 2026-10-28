@@ -55,7 +55,7 @@ internal fun startDateForPageIndex(
 private fun pageStartDate(date: LocalDate, firstDayOfWeek: DayOfWeek, daysPerPage: Int): LocalDate {
 	if (daysPerPage >= 7) return weekStartForDate(date, firstDayOfWeek)
 	if (daysPerPage == 1) return date
-	// For 3 days: align to week start so the view shifts in a predictable way
+	// For 3 days, align to the start of the 3-day block within the week
 	val weekStart = weekStartForDate(date, firstDayOfWeek)
 	val offset = ChronoUnit.DAYS.between(weekStart, date).toInt() / daysPerPage * daysPerPage
 	return weekStart.plusDays(offset.toLong())
