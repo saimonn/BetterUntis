@@ -1,0 +1,1 @@
+- Fix day/3-day/weekly swipe navigation
