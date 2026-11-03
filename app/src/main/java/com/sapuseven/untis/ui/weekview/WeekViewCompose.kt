@@ -627,9 +627,18 @@ fun <T> WeekViewCompose(
 	val startPage = Int.MAX_VALUE / 2
 	val pagerState = rememberPagerState(initialPage = startPage) { Int.MAX_VALUE }
 	val numDays = daysPerPage.coerceIn(1, 7)
+	var previousDaysPerPage by remember { mutableIntStateOf(daysPerPage) }
 
 	LaunchedEffect(numDays) {
-		pagerState.scrollToPage(startPage)
+		if (previousDaysPerPage != numDays) {
+			val currentPageOffset = pagerState.currentPage - startPage
+			val currentStartDate = startDateForPageIndex(currentPageOffset.toLong(), daysPerPage = previousDaysPerPage.coerceIn(1, 7))
+			val targetPageOffset = pageIndexForDate(currentStartDate, weekLength = numDays, daysPerPage = numDays)
+			pagerState.scrollToPage((startPage + targetPageOffset).toInt())
+			previousDaysPerPage = numDays
+		} else {
+			previousDaysPerPage = numDays
+		}
 	}
 
 	val currentOnPageChange by rememberUpdatedState(onPageChange)
