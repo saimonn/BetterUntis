@@ -1,0 +1,1 @@
+- Preserve selected date when switching between day/3-day/week view
