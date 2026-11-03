@@ -6,6 +6,13 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.time.temporal.WeekFields
 
+internal fun pageStepDays(daysPerPage: Int): Long = when (daysPerPage.coerceIn(1, 7)) {
+	1 -> 1L
+	3 -> 1L
+	5, 7 -> 7L
+	else -> daysPerPage.toLong()
+}
+
 /**
  * Calculates the relative page index corresponding to a date.
  * The page index for today will always be `0`.
@@ -19,7 +26,9 @@ internal fun pageIndexForDate(
 	daysPerPage: Int = weekLength,
 ): Long {
 	val daysPerPage = daysPerPage.coerceIn(1, 7)
-	if (daysPerPage == 7) {
+	val step = pageStepDays(daysPerPage)
+
+	if (daysPerPage == 7 || daysPerPage == 5) {
 		val weeks = ChronoUnit.WEEKS.between(
 			weekStartForDate(LocalDate.now(clock), firstDayOfWeek), weekStartForDate(date, firstDayOfWeek)
 		)
@@ -33,7 +42,7 @@ internal fun pageIndexForDate(
 
 	val todayStart = pageStartDate(LocalDate.now(clock), firstDayOfWeek, daysPerPage)
 	val dateStart = pageStartDate(date, firstDayOfWeek, daysPerPage)
-	return ChronoUnit.DAYS.between(todayStart, dateStart) / daysPerPage.toLong()
+	return ChronoUnit.DAYS.between(todayStart, dateStart) / step
 }
 
 /**
@@ -46,15 +55,19 @@ internal fun startDateForPageIndex(
 	daysPerPage: Int = 5,
 ): LocalDate {
 	val daysPerPage = daysPerPage.coerceIn(1, 7)
-	if (daysPerPage == 7) {
+	val step = pageStepDays(daysPerPage)
+
+	if (daysPerPage == 7 || daysPerPage == 5) {
 		return weekStartForDate(LocalDate.now(clock), firstDayOfWeek).plusWeeks(pageIndex)
 	}
-	return pageStartDate(LocalDate.now(clock), firstDayOfWeek, daysPerPage).plusDays(pageIndex * daysPerPage.toLong())
+
+	return pageStartDate(LocalDate.now(clock), firstDayOfWeek, daysPerPage).plusDays(pageIndex * step)
 }
 
 private fun pageStartDate(date: LocalDate, firstDayOfWeek: DayOfWeek, daysPerPage: Int): LocalDate {
 	if (daysPerPage >= 7) return weekStartForDate(date, firstDayOfWeek)
 	if (daysPerPage == 1) return date
+	if (daysPerPage == 5) return weekStartForDate(date, firstDayOfWeek)
 	// For 3 days, align to the start of the 3-day block within the week
 	val weekStart = weekStartForDate(date, firstDayOfWeek)
 	val offset = ChronoUnit.DAYS.between(weekStart, date).toInt() / daysPerPage * daysPerPage

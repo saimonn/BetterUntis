@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.Button
@@ -134,6 +136,11 @@ fun Timetable(
 							DebugDesclaimerAction()
 
 						Row {
+							AssistChip(
+								onClick = { viewModel.goToToday() },
+								label = { Text("${java.time.LocalDate.now().dayOfMonth}") }
+							)
+							Spacer(modifier = Modifier.width(4.dp))
 							AssistChip(
 								onClick = { viewModel.setDaysPerPage(1) },
 								label = { Text("1") }

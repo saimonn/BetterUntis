@@ -118,6 +118,13 @@ class TimetableViewModel @Inject constructor(
 		onPageChange(0)
 	}
 
+	fun goToToday() {
+		_events.value = emptyMap()
+		_lastRefresh.value = null
+		currentPage = 0
+		onPageChange(0)
+	}
+
 	private val _weekViewColorScheme = MutableStateFlow(WeekViewColorScheme.default())
 	val weekViewColorScheme: StateFlow<WeekViewColorScheme> = _weekViewColorScheme
 
